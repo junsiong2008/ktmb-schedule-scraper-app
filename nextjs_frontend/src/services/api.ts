@@ -96,10 +96,10 @@ export interface TripSearchResult {
     trip_headsign: string;
 }
 
-export const searchTrips = async (from: string, to: string, date: string): Promise<TripSearchResult[]> => {
+export const searchTrips = async (from: string, to: string, date: string, serviceType?: string): Promise<TripSearchResult[]> => {
     try {
         const response = await api.get('/schedule/search', {
-            params: { from, to, date },
+            params: { from, to, date, service_type: serviceType },
         });
         return response.data;
     } catch (error) {

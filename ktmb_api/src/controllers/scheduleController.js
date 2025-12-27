@@ -223,7 +223,7 @@ const getScheduleList = async (req, res) => {
 };
 
 const searchTrips = async (req, res) => {
-    const { from, to, date } = req.query;
+    const { from, to, date, service_type } = req.query;
 
     if (!from || !to || !date) {
         return res.status(400).json({ error: 'Missing "from", "to", or "date" parameter' });
@@ -240,7 +240,7 @@ const searchTrips = async (req, res) => {
         filterTime = getCurrentTimeHHMMSS();
     }
 
-    const query = `
+    let query = `
         SELECT
             t.train_number as trip_id,
             st_a.departure_time as departure_time,
@@ -264,14 +264,20 @@ const searchTrips = async (req, res) => {
         WHERE st_a.station_id = $1
           AND st_b.station_id = $2
           AND st_a.stop_sequence < st_b.stop_sequence
-          AND sc.day_type = $3
+          AND (sc.day_type = $3 OR sc.day_type = 'Daily')
           AND sc.valid_from <= $4
           AND (sc.valid_to IS NULL OR sc.valid_to >= $4)
           AND st_a.departure_time >= $5
-        ORDER BY st_a.departure_time ASC;
     `;
 
     const params = [from, to, dayType, date, filterTime];
+
+    if (service_type) {
+        query += ` AND r.service_type = $6`;
+        params.push(service_type);
+    }
+
+    query += ` ORDER BY st_a.departure_time ASC;`;
 
     try {
         const result = await db.query(query, params);

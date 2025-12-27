@@ -13,7 +13,8 @@ load_dotenv()
 # Malay Month Mapping
 MONTH_MAPPING = {
     "JANUARI": 1, "FEBRUARI": 2, "MAC": 3, "APRIL": 4, "MEI": 5, "JUN": 6,
-    "JULAI": 7, "OGOS": 8, "SEPTEMBER": 9, "OKTOBER": 10, "NOVEMBER": 11, "DISEMBER": 12
+    "JULAI": 7, "OGOS": 8, "SEPTEMBER": 9, "OKTOBER": 10, "NOVEMBER": 11, "DISEMBER": 12,
+    "DIS": 12 # Abbreviation for DISEMBER
 }
 
 def get_db_connection():
@@ -26,7 +27,7 @@ def get_db_connection():
         sys.exit(1)
 
 def parse_malay_date(date_str):
-    """Parses a Malay date string (e.g., '25 OGOS 2025') into a Python date object."""
+    """Parses a Malay date string (e.g., '25 OGOS 2025' or '12 Dis 2025') into a Python date object."""
     try:
         parts = date_str.strip().upper().split()
         if len(parts) != 3:
@@ -37,6 +38,7 @@ def parse_malay_date(date_str):
         
         month = MONTH_MAPPING.get(month_str)
         if not month:
+            # Try matching partial keys? No, dictionary lookup is exact.
             return None
             
         return datetime(year, month, day).date()
@@ -44,47 +46,83 @@ def parse_malay_date(date_str):
         print(f"Error parsing date '{date_str}': {e}")
         return None
 
-def extract_metadata(df):
-    """Extracts metadata from the second row (index 1) of the CSV."""
-    # Example: JADUAL WAKTU KOMUTER LALUAN BATU CAVES KE PULAU SEBANG TAHUN 2025 (HARI BEKERJA) MULAI 25 OGOS 2025
-    # Row 1 in 0-indexed DF is the second row of the file
+def extract_metadata(df, filename=""):
+    """Extracts metadata from the second row (index 1) of the CSV or filename fallback."""
     
-    # We load the dataframe with header=2 effectively to get the "TRAIN NUMBER" as header, 
-    # but we need to read the raw meta row first.
-    # Let's assume we read the whole file without header first to get meta.
-    
-    meta_row = df.iloc[1, 0] # Column 0 of Row 1
+    # Attempt to read from file content first
+    meta_row = ""
+    if df.shape[0] > 1:
+        meta_row = str(df.iloc[1, 0]) if pd.notna(df.iloc[1, 0]) else ""
     
     # Defaults
-    service_type = "Komuter" # specific to this CSV structure usually
-    if "ETS" in meta_row:
-        service_type = "ETS"
-    elif "INTERCITY" in meta_row:
-        service_type = "Intercity"
-        
+    service_type = None
     route_name = "Unknown Route"
+    valid_from = None
+    day_type = "Weekday" # Default to Weekday
+
+    # 1. Determine Service Type
+    if "ETS" in meta_row or "ETS" in filename.upper():
+        service_type = "ETS"
+    elif "INTERCITY" in meta_row or "INTERCITY" in filename.upper():
+        service_type = "Intercity"
+    else:
+        service_type = "Komuter" # Default to Komuter usually
+    
+    # 2. Determine Route Name
+    # Try from file content pattern
     route_match = re.search(r"LALUAN (.*?) (?:TAHUN|BERKUATKUASA)", meta_row)
     if route_match:
         route_name = route_match.group(1).strip()
     else:
-        # Fallback regex if TAHUN is not present or slightly different
         route_match = re.search(r"LALUAN (.*?) \(", meta_row)
         if route_match:
              route_name = route_match.group(1).strip()
+    
+    # Fallback to Filename or Header inference for ETS
+    if route_name == "Unknown Route" and service_type == "ETS":
+        # Check specific headers in file to guess direction/route
+        # Row 2 (index 2) usually has "TREN KE UTARA" or "TREN KE SELATAN"
+        direction_hint = ""
+        if df.shape[0] > 2:
+            row2_val = str(df.iloc[2, 0])
+            if "UTARA" in row2_val.upper() or "NORTHBOUND" in row2_val.upper():
+                direction_hint = "Northbound"
+            elif "SELATAN" in row2_val.upper() or "SOUTHBOUND" in row2_val.upper():
+                direction_hint = "Southbound"
+        
+        if direction_hint:
+             # ETS is usually Gemas - Padang Besar
+             if direction_hint == "Northbound":
+                 route_name = "Gemas - Padang Besar (Northbound)"
+             else:
+                 route_name = "Padang Besar - Gemas (Southbound)"
+        else:
+             route_name = f"ETS Route ({filename})"
 
-    valid_from = None
+
+    # 3. Determine Valid From Date
+    # Try logic in file content "MULAI ..."
     mulai_match = re.search(r"MULAI (.*)", meta_row)
     if mulai_match:
         date_str = mulai_match.group(1).strip()
-        # Remove trailing commas or empty cells representation if pandas read them into the string? 
-        # Usually it's just the string in the cell.
         valid_from = parse_malay_date(date_str)
-        
-    day_type = "Weekday"
+    
+    # Fallback to filename regex (e.g. "12 Dis 2025")
+    if not valid_from:
+        date_match = re.search(r"(\d{1,2} [a-zA-Z]+ \d{4})", filename)
+        if date_match:
+             valid_from = parse_malay_date(date_match.group(1))
+
+    # 4. Determine Day Type
     if "HARI BEKERJA" in meta_row:
         day_type = "Weekday"
     elif "KELEPASAN AM" in meta_row or "SABTU" in meta_row:
         day_type = "Weekend"
+    else:
+        # Fallback based on filename? If not specified, usually daily for ETS?
+        # ETS usually runs daily unless specified otherwise.
+        if service_type == "ETS":
+             day_type = "Daily"
         
     return {
         "service_type": service_type,
@@ -95,47 +133,72 @@ def extract_metadata(df):
     }
 
 def ingest_csv(csv_path, dry_run=False):
-    print(f"Processing {csv_path}...")
+    filename = os.path.basename(csv_path)
+    print(f"Processing {filename}...")
     
-    # Read first few lines to get metadata
-    # We assume standard format:
-    # Row 0: Empty or numbers
-    # Row 1: Title/Meta
-    # Row 2: "NOMBOR TRIP", 1, 2, ...
-    # Row 3: "TRAIN NUMBER", 2003, ...
-    # Row 4+: Data
-    
+    # Read CSV
+    # We read without header first to locate things
     raw_df = pd.read_csv(csv_path, header=None)
-    metadata = extract_metadata(raw_df)
+    metadata = extract_metadata(raw_df, filename)
     
     print(f"Metadata extracted: {metadata}")
     
     if not metadata['valid_from']:
-        print("Warning: Could not parse logical start date. Using today?? No, failing.")
+        print("Warning: Could not parse logical start date. Skipping file.")
         if not dry_run:
-            sys.exit("Error: Valid From date is parsing failed.")
+            return # Skip instead of crashing
     
-    # Find the header row (containing "TRAIN NUMBER")
-    # In the sample: Row index 3 (0-based) starts with "TRAIN NUMBER"
+    # Find the header row (containing "TRAIN NUMBER" or "STESEN")
     header_row_idx = None
     for idx, row in raw_df.iterrows():
-        if isinstance(row[0], str) and "TRAIN NUMBER" in row[0]:
+        first_col = str(row[0]).upper()
+        if "TRAIN NUMBER" in first_col or "STESEN" in first_col or "STATION" in first_col:
             header_row_idx = idx
             break
             
     if header_row_idx is None:
-        sys.exit("Error: Could not find 'TRAIN NUMBER' row.")
-        
-    # Reload DF with correct header
-    df = pd.read_csv(csv_path, header=header_row_idx)
+        print("Error: Could not find Header row (TRAIN NUMBER / STATION).")
+        return
+
+    # Extract the header row content
+    # header_row = raw_df.iloc[header_row_idx].tolist()
     
-    # Clean train numbers columns
-    # The first column is usually 'TRAIN NUMBER' or station names in subsequent rows.
-    # The columns AFTER the first one are the train numbers.
-    train_columns = df.columns[1:] # All columns except the first
+    # Identify Data Columns and Clean Headers (Unclumping)
     
-    # Filter out columns that might be unnamed or empty if trailing commas exist
-    valid_train_cols = [c for c in train_columns if str(c).strip() != '' and 'Unnamed' not in str(c)]
+    df_data = pd.read_csv(csv_path, header=header_row_idx)
+    
+    # Get all potential train numbers from the header row (raw_df)
+    # We skip Col 0
+    header_cells = raw_df.iloc[header_row_idx, 1:].tolist()
+    train_numbers = []
+    for cell in header_cells:
+        if pd.notna(cell) and isinstance(cell, str):
+            # Split by space
+            tokens = cell.strip().split()
+            for t in tokens:
+                if t: train_numbers.append(t)
+    
+    # Now look at data columns in df_data (excluding col 0)
+    data_cols = df_data.columns[1:]
+    
+    # We need to identify which columns in `df_data` are actually valid columns corresponding to these train numbers.
+    # Logic: Filter columns to only those that contain data (not all NaN)
+    
+    valid_data_cols_indices = []
+    for i, col in enumerate(data_cols):
+        # Check if column is not all NaN
+        if not df_data[col].isna().all():
+             valid_data_cols_indices.append(col)
+    
+    if len(train_numbers) == 0:
+        print("Error: No train numbers found in header.")
+        return
+
+    # Let's try to align `train_numbers` list to `valid_data_cols_indices` list.
+    if len(train_numbers) != len(valid_data_cols_indices):
+        print(f"Warning: Found {len(train_numbers)} train numbers but {len(valid_data_cols_indices)} effective data columns.")
+        print(f"Trains: {train_numbers}")
+        # If mismatch, we continue with zipped length (ignoring extras)
     
     conn = None
     if not dry_run:
@@ -145,15 +208,6 @@ def ingest_csv(csv_path, dry_run=False):
     try:
         if not dry_run:
             # 1. Upsert Route
-            cursor.execute("""
-                INSERT INTO routes (name, service_type)
-                VALUES (%s, %s)
-                ON CONFLICT (id) DO NOTHING -- Routes usually don't have unique name constraint in schema, but let's check duplicates manually?
-                -- Schema says routes.id is PK, no unique constraint on name.
-                -- We should check if it exists first to avoid duplicates.
-            """, (metadata['route_name'], metadata['service_type']))
-            
-            # Since name isn't unique, let's select to see if it exists
             cursor.execute("SELECT id FROM routes WHERE name = %s AND service_type = %s", (metadata['route_name'], metadata['service_type']))
             route = cursor.fetchone()
             if not route:
@@ -163,113 +217,125 @@ def ingest_csv(csv_path, dry_run=False):
                 route_id = route[0]
 
             # 2. Create Schedule
-            # Usually we might want to update if matches same file/date, but let's insert new for now
             cursor.execute("""
                 INSERT INTO schedules (route_id, valid_from, day_type, source_file)
                 VALUES (%s, %s, %s, %s)
                 RETURNING id
-            """, (route_id, metadata['valid_from'], metadata['day_type'], os.path.basename(csv_path)))
+            """, (route_id, metadata['valid_from'], metadata['day_type'], filename))
             schedule_id = cursor.fetchone()[0]
             
-            # Map column index to trip_id
+            # 3. Create Trips
+            # We map the DataFrame column NAME (from df_data) to the created Trip ID
             col_to_trip_id = {}
-            for col_name in valid_train_cols:
-                train_no = str(col_name).split('.')[0] # Handle 2003.0 if pandas parsed as float
-                
-                # Direction Inference
-                # If Route is "Batu Caves - Pulau Sebang", and this is one direction, usually the file represents one direction?
-                # The sample CSV name implies "Batu Caves ke Pulau Sebang".
-                # If the filename or route name has "KE", we can infer.
-                direction = "Unknown"
-                if " KE " in metadata['route_name']:
-                    direction = metadata['route_name'] # e.g. "BATU CAVES KE PULAU SEBANG"
-                
+            
+            # Direction Inference fallback
+            direction = "Unknown"
+            if "Northbound" in metadata['route_name'] or "UTARA" in metadata['route_name'].upper():
+                direction = "Northbound"
+            elif "Southbound" in metadata['route_name'] or "SELATAN" in metadata['route_name'].upper():
+                 direction = "Southbound"
+
+            # Iterate through paired (train_number, data_column)
+            # We zip them. If sizes mismatch, we lose tail data (safest default).
+            
+            for train_no, data_col_name in zip(train_numbers, valid_data_cols_indices):
                 cursor.execute("""
                     INSERT INTO trips (schedule_id, train_number, direction)
                     VALUES (%s, %s, %s)
                     RETURNING id
                 """, (schedule_id, train_no, direction))
                 trip_id = cursor.fetchone()[0]
-                col_to_trip_id[col_name] = trip_id
+                col_to_trip_id[data_col_name] = trip_id
 
             conn.commit()
-            print(f"Created Schedule ID: {schedule_id} with {len(valid_train_cols)} trips.")
+            print(f"Created Schedule ID: {schedule_id} with {len(col_to_trip_id)} trips.")
+        else:
+             # Dry run simulation
+             # Zip simulation
+             col_to_trip_id = {}
+             # Just map to dummy IDs
+             for i, (train_no, data_col_name) in enumerate(zip(train_numbers, valid_data_cols_indices)):
+                 col_to_trip_id[data_col_name] = f"dry_trip_{i}_{train_no}"
+             
+             print(f"Dry Run: Would create {len(col_to_trip_id)} trips.")
+             print(f"Mapped: {list(zip(train_numbers, valid_data_cols_indices))}")
 
-        # 3. Process Stations and Times
+
+        # 4. Process Stop Times
         stop_times_batch = []
-        
-        # Iterate over the rows of the dataframe
         stop_seq = 0
-        for idx, row in df.iterrows():
-            station_name = str(row[df.columns[0]]).strip()
+        
+        # We assume Station Name is Column 0
+        station_col = df_data.columns[0]
+        
+        for idx, row in df_data.iterrows():
+            station_name = str(row[station_col]).strip()
             
-            # Skip empty rows or weird headers if they leaked
-            if not station_name or station_name.lower() == 'nan':
+            if not station_name or station_name.lower() in ['nan', 'stesen/station', 'station']:
                 continue
-                
+            
+            # Skip if it's the metadata rows (checking again just in case)
+            if idx <= header_row_idx:
+                continue
+
             stop_seq += 1
             
+            station_id = None
             if not dry_run:
-                # Upsert Station
-                # We need station_id for stop_times, so we still have to query/insert station one by one 
-                # unless we bulk fetch stations. But stations are few (30-50).
                 cursor.execute("""
                     INSERT INTO stations (name) VALUES (%s)
                     ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
                     RETURNING id
                 """, (station_name,))
                 station_id = cursor.fetchone()[0]
+
+            # Iterate over valid train columns
+            for col_name, trip_id in col_to_trip_id.items():
+                time_val = str(row[col_name]).strip()
                 
-                # Collect Stop Times for batch insert
-                for col_name in valid_train_cols:
-                    time_val = str(row[col_name]).strip()
-                    if time_val and time_val.lower() != 'nan':
-                        # Parse time
-                        try:
-                            if ':' in time_val:
-                                parts = time_val.split(':')
-                                h = int(parts[0])
-                                m = int(parts[1])
-                                if h >= 24:
-                                    h = h - 24
+                # Check valid time format (HH:MM)
+                # Ignore '-', empty, NaN
+                if time_val and time_val.lower() not in ['nan', '-', '--', '---']:
+                    try:
+                        # Sometimes cells have garbage like "08:40." or spaces
+                        clean_time = time_val.replace('.', ':').strip()
+                        
+                        if ':' in clean_time:
+                            parts = clean_time.split(':')
+                            h = int(parts[0])
+                            m = int(parts[1])
+                            # Basic validation
+                            if 0 <= h <= 30 and 0 <= m <= 59:
+                                if h >= 24: h -= 24
                                 time_formatted = f"{h:02d}:{m:02d}:00"
                                 
-                                trip_id = col_to_trip_id[col_name]
-                                
-                                stop_times_batch.append((trip_id, station_id, time_formatted, time_formatted, stop_seq))
-                        except Exception as e:
-                            print(f"Error parsing time {time_val} for station {station_name}: {e}")
-        
-        # Batch Insert Stop Times
+                                if not dry_run:
+                                    stop_times_batch.append((trip_id, station_id, time_formatted, time_formatted, stop_seq))
+                                else:
+                                    pass # Dry run, just parsing
+                    except ValueError:
+                        pass # Not a time
+                        
+        # Batch Insert
         if not dry_run and stop_times_batch:
             print(f"Inserting {len(stop_times_batch)} stop times...")
             try:
                 args_str = ','.join(cursor.mogrify("(%s,%s,%s,%s,%s)", x).decode('utf-8') for x in stop_times_batch)
                 cursor.execute("INSERT INTO stop_times (trip_id, station_id, arrival_time, departure_time, stop_sequence) VALUES " + args_str)
+                conn.commit()
             except Exception as e:
-                print(f"Batch insert failed, fallback to executemany: {e}")
-                # Fallback to executemany if mogrify fails (unlikely)
-                cursor.executemany("""
-                    INSERT INTO stop_times (trip_id, station_id, arrival_time, departure_time, stop_sequence)
-                    VALUES (%s, %s, %s, %s, %s)
-                """, stop_times_batch)
-                
-        if not dry_run:
-            conn.commit()
-            print("Ingestion complete.")
-        else:
-            print("Dry run complete. No changes made to DB.")
+                print(f"Batch insert failed: {e}")
+                conn.rollback()
+        elif dry_run:
+            print(f"Dry Run: parsed stations.")
 
     except Exception as e:
-        if conn:
-            conn.rollback()
-        print(f"Error during processing: {e}")
+        if conn: conn.rollback()
+        print(f"Error processing file: {e}")
         raise
     finally:
-        if conn:
-            conn.close()
-
-
+        if conn: conn.close()
+        
 def truncate_tables():
     """Truncates all tables to clear data before ingestion."""
     print("Truncating all tables...")
@@ -299,7 +365,7 @@ if __name__ == "__main__":
             truncate_tables()
             
         csv_files = [f for f in os.listdir(args.input_path) if f.lower().endswith('.csv')]
-        csv_files.sort() # Ensure deterministic order
+        csv_files.sort() 
         
         print(f"Found {len(csv_files)} CSV files in {args.input_path}")
         
@@ -309,7 +375,6 @@ if __name__ == "__main__":
                 ingest_csv(full_path, args.dry_run)
             except Exception as e:
                 print(f"Failed to ingest {f}: {e}")
-                # Continue with other files? Yes.
                 
     elif os.path.isfile(args.input_path):
         # Single file mode

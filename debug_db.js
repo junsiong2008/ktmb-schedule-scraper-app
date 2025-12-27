@@ -1,5 +1,5 @@
-require('dotenv').config();
-const db = require('./src/config/db');
+require('dotenv').config({ path: '/Users/tengjunsiong/Projects/ktmb0t/Stack/ktmb_timetable/ktmb_api/.env' });
+const db = require('./ktmb_api/src/config/db');
 
 const checkDB = async () => {
     try {
@@ -22,17 +22,13 @@ const checkDB = async () => {
                 WHERE r.service_type = 'ETS'
             `);
             console.log(res3.rows);
-
-            // Check for valid stops between Ipoh and KL Sentral
-            // Ipoh station ID? KL Sentral station ID?
-            console.log("\n--- Stations (Ipoh, KL Sentral) ---");
-            const resStations = await db.query("SELECT id, name FROM stations WHERE name ILIKE '%Ipoh%' OR name ILIKE '%KL Sentral%'");
-            console.log(resStations.rows);
         }
 
     } catch (err) {
         console.error("Error:", err);
     } finally {
+        // We can't easily close the pool if not exposed, but script will end.
+        // Actually db module is usually a Pool object.
         process.exit();
     }
 };

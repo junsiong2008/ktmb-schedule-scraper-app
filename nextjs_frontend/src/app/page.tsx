@@ -13,6 +13,7 @@ export default function Home() {
   const [destinationId, setDestinationId] = useState<string>('');
   // Default date to today yyyy-MM-dd in Malaysia time (simple approximation or ISO split)
   const [date, setDate] = useState<string>('');
+  const [serviceType, setServiceType] = useState<string>('Komuter');
 
   // Results state
   const [trips, setTrips] = useState<TripSearchResult[]>([]);
@@ -45,7 +46,7 @@ export default function Home() {
     setLoading(true);
     setHasSearched(true);
     try {
-      const results = await searchTrips(originId, destinationId, date);
+      const results = await searchTrips(originId, destinationId, date, serviceType);
       setTrips(results);
     } catch (error) {
       console.error('Search failed', error);
@@ -86,10 +87,34 @@ export default function Home() {
 
         {/* Search Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-            <MapPin className="text-blue-600" />
-            Plan Your Journey
-          </h2>
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <MapPin className="text-blue-600" />
+              Plan Your Journey
+            </h2>
+
+            {/* Service Type Tabs */}
+            <div className="bg-gray-100 p-1 rounded-lg flex self-start md:self-auto">
+              <button
+                onClick={() => setServiceType('Komuter')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${serviceType === 'Komuter'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                  }`}
+              >
+                KTM Komuter
+              </button>
+              <button
+                onClick={() => setServiceType('ETS')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${serviceType === 'ETS'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                  }`}
+              >
+                ETS
+              </button>
+            </div>
+          </div>
 
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row gap-4 items-end">
