@@ -77,6 +77,11 @@ def extract_metadata(df, filename=""):
         route_match = re.search(r"LALUAN (.*?) \(", meta_row)
         if route_match:
              route_name = route_match.group(1).strip()
+        else:
+            # Check for "KOMUTER [ROUTE] [HARI...]"
+            route_match = re.search(r"KOMUTER (.*?) (?:HARI|SABTU|AHAD|MULAI)", meta_row)
+            if route_match:
+                route_name = route_match.group(1).strip()
     
     # Fallback to Filename or Header inference for ETS
     if route_name == "Unknown Route" and service_type == "ETS":
@@ -152,7 +157,7 @@ def ingest_csv(csv_path, dry_run=False):
     header_row_idx = None
     for idx, row in raw_df.iterrows():
         first_col = str(row[0]).upper()
-        if "TRAIN NUMBER" in first_col or "STESEN" in first_col or "STATION" in first_col:
+        if "TRAIN NUMBER" in first_col or "STESEN" in first_col or "STATION" in first_col or "NOMBOR TREN" in first_col:
             header_row_idx = idx
             break
             
@@ -163,42 +168,29 @@ def ingest_csv(csv_path, dry_run=False):
     # Extract the header row content
     # header_row = raw_df.iloc[header_row_idx].tolist()
     
-    # Identify Data Columns and Clean Headers (Unclumping)
+    # Identify Data Columns and Clean Headers using indices from raw_df
+    # We define df_data as raw_df to prevent confusion, we will iterate using explicit integer indexing.
+    # df_data = raw_df 
     
-    df_data = pd.read_csv(csv_path, header=header_row_idx)
+    # Identify Train Columns by Index
+    col_idx_to_train_no = {}
     
-    # Get all potential train numbers from the header row (raw_df)
-    # We skip Col 0
-    header_cells = raw_df.iloc[header_row_idx, 1:].tolist()
-    train_numbers = []
-    for cell in header_cells:
-        if pd.notna(cell) and isinstance(cell, str):
-            # Split by space
-            tokens = cell.strip().split()
-            for t in tokens:
-                if t: train_numbers.append(t)
+    header_row_series = raw_df.iloc[header_row_idx]
     
-    # Now look at data columns in df_data (excluding col 0)
-    data_cols = df_data.columns[1:]
+    # Iterate over columns starting from index 1 (skip Station Name at 0)
+    for col_idx in range(1, len(header_row_series)):
+        cell_val = header_row_series.iloc[col_idx] if hasattr(header_row_series, 'iloc') else header_row_series[col_idx]
+        if pd.notna(cell_val) and isinstance(cell_val, str) and cell_val.strip():
+             # Check if it looks like a train number (digits) or just process it
+             # Some have non-digits? Usually just digits.
+             train_no = cell_val.strip()
+             col_idx_to_train_no[col_idx] = train_no
+             
+    if not col_idx_to_train_no:
+         print("Error: No train numbers found in header.")
+         return
     
-    # We need to identify which columns in `df_data` are actually valid columns corresponding to these train numbers.
-    # Logic: Filter columns to only those that contain data (not all NaN)
-    
-    valid_data_cols_indices = []
-    for i, col in enumerate(data_cols):
-        # Check if column is not all NaN
-        if not df_data[col].isna().all():
-             valid_data_cols_indices.append(col)
-    
-    if len(train_numbers) == 0:
-        print("Error: No train numbers found in header.")
-        return
-
-    # Let's try to align `train_numbers` list to `valid_data_cols_indices` list.
-    if len(train_numbers) != len(valid_data_cols_indices):
-        print(f"Warning: Found {len(train_numbers)} train numbers but {len(valid_data_cols_indices)} effective data columns.")
-        print(f"Trains: {train_numbers}")
-        # If mismatch, we continue with zipped length (ignoring extras)
+    print(f"Found {len(col_idx_to_train_no)} train columns.")
     
     conn = None
     if not dry_run:
@@ -235,30 +227,27 @@ def ingest_csv(csv_path, dry_run=False):
             elif "Southbound" in metadata['route_name'] or "SELATAN" in metadata['route_name'].upper():
                  direction = "Southbound"
 
-            # Iterate through paired (train_number, data_column)
-            # We zip them. If sizes mismatch, we lose tail data (safest default).
-            
-            for train_no, data_col_name in zip(train_numbers, valid_data_cols_indices):
+            # Iterate through identified column indices
+            for col_idx, train_no in col_idx_to_train_no.items():
                 cursor.execute("""
                     INSERT INTO trips (schedule_id, train_number, direction)
                     VALUES (%s, %s, %s)
                     RETURNING id
                 """, (schedule_id, train_no, direction))
                 trip_id = cursor.fetchone()[0]
-                col_to_trip_id[data_col_name] = trip_id
+                col_to_trip_id[col_idx] = trip_id
 
             conn.commit()
             print(f"Created Schedule ID: {schedule_id} with {len(col_to_trip_id)} trips.")
         else:
              # Dry run simulation
-             # Zip simulation
+             # Dry run simulation
              col_to_trip_id = {}
              # Just map to dummy IDs
-             for i, (train_no, data_col_name) in enumerate(zip(train_numbers, valid_data_cols_indices)):
-                 col_to_trip_id[data_col_name] = f"dry_trip_{i}_{train_no}"
+             for col_idx, train_no in col_idx_to_train_no.items():
+                 col_to_trip_id[col_idx] = f"dry_trip_{col_idx}_{train_no}"
              
              print(f"Dry Run: Would create {len(col_to_trip_id)} trips.")
-             print(f"Mapped: {list(zip(train_numbers, valid_data_cols_indices))}")
 
 
         # 4. Process Stop Times
@@ -266,10 +255,12 @@ def ingest_csv(csv_path, dry_run=False):
         stop_seq = 0
         
         # We assume Station Name is Column 0
-        station_col = df_data.columns[0]
+        station_col_idx = 0
         
-        for idx, row in df_data.iterrows():
-            station_name = str(row[station_col]).strip()
+        # Iterate over raw_df starting from header_row_idx + 1
+        for idx in range(header_row_idx + 1, len(raw_df)):
+            row = raw_df.iloc[idx]
+            station_name = str(row[station_col_idx]).strip()
             
             if not station_name or station_name.lower() in ['nan', 'stesen/station', 'station']:
                 continue
@@ -290,8 +281,8 @@ def ingest_csv(csv_path, dry_run=False):
                 station_id = cursor.fetchone()[0]
 
             # Iterate over valid train columns
-            for col_name, trip_id in col_to_trip_id.items():
-                time_val = str(row[col_name]).strip()
+            for col_idx, trip_id in col_to_trip_id.items():
+                time_val = str(row[col_idx]).strip()
                 
                 # Check valid time format (HH:MM)
                 # Ignore '-', empty, NaN
