@@ -112,7 +112,7 @@ export default function Home() {
       <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
 
         {/* Search Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
               <MapPin className="text-blue-600" />
@@ -194,7 +194,7 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Date Picker */}
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Travel Date</label>
                 <div className="relative">
                   <input
@@ -204,28 +204,28 @@ export default function Home() {
                       setDate(e.target.value);
                       setTime('');
                     }}
-                    className="w-full p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
+                    className="w-full max-w-full min-w-0 p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                   />
-                  <Calendar className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                  <Calendar className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
                 </div>
               </div>
 
               {/* Time Picker */}
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Travel Time</label>
                 <div className="relative">
                   <input
                     type="time"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    className="w-full p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
+                    className="w-full max-w-full min-w-0 p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                   />
-                  <Clock className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                  <Clock className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
                 </div>
               </div>
 
               {/* Search Button */}
-              <div className="flex items-end">
+              <div className="flex items-end md:col-span-2">
                 <button
                   onClick={handleSearch}
                   disabled={!originId || !destinationId || !date || loading}
