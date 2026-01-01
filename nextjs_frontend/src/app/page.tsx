@@ -200,7 +200,10 @@ export default function Home() {
                   <input
                     type="date"
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={(e) => {
+                      setDate(e.target.value);
+                      setTime('');
+                    }}
                     className="w-full p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                   />
                   <Calendar className="absolute left-3 top-3.5 text-gray-400" size={18} />
