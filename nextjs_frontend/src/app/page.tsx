@@ -204,7 +204,7 @@ export default function Home() {
                       setDate(e.target.value);
                       setTime('');
                     }}
-                    className="w-full max-w-full min-w-0 p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
+                    className="w-full min-w-0 box-border p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                   />
                   <Calendar className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
                 </div>
@@ -218,7 +218,7 @@ export default function Home() {
                     type="time"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    className="w-full max-w-full min-w-0 p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
+                    className="w-full min-w-0 box-border p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                   />
                   <Clock className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
                 </div>
