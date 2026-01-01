@@ -18,6 +18,7 @@ export default function Home() {
   // Results state
   const [trips, setTrips] = useState<TripSearchResult[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [stationLoading, setStationLoading] = useState<boolean>(false);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
 
   // Initialize
@@ -28,17 +29,32 @@ export default function Home() {
       // Adjust to UTC+8 manually for simple default string
       const myTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
       const todayStr = myTime.toISOString().split('T')[0];
-      setDate(todayStr);
-
-      try {
-        const stationData = await getStations();
-        setStations(stationData);
-      } catch (error) {
-        console.error('Failed to fetch stations', error);
-      }
+      setDate(todayStr); // Only set date on mount
     };
     init();
   }, []);
+
+  // Fetch stations whenever serviceType changes
+  useEffect(() => {
+    const fetchStations = async () => {
+      setStationLoading(true);
+      try {
+        // Pass undefined for route_id, and the selected serviceType
+        const stationData = await getStations(undefined, serviceType);
+        setStations(stationData);
+
+        // Reset selections when service type changes (stations might not exist in other service)
+        setOriginId('');
+        setDestinationId('');
+      } catch (error) {
+        console.error('Failed to fetch stations', error);
+      } finally {
+        setStationLoading(false);
+      }
+    };
+
+    fetchStations();
+  }, [serviceType]);
 
   const handleSearch = async () => {
     if (!originId || !destinationId || !date) return;
@@ -98,8 +114,8 @@ export default function Home() {
               <button
                 onClick={() => setServiceType('Komuter')}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${serviceType === 'Komuter'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-900'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
                   }`}
               >
                 KTM Komuter
@@ -107,8 +123,8 @@ export default function Home() {
               <button
                 onClick={() => setServiceType('ETS')}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${serviceType === 'ETS'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-900'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
                   }`}
               >
                 ETS
@@ -124,9 +140,10 @@ export default function Home() {
                 <select
                   value={originId}
                   onChange={(e) => setOriginId(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
+                  disabled={stationLoading}
+                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Start from...</option>
+                  <option value="">{stationLoading ? 'Loading stations...' : 'Start from...'}</option>
                   {stations.map((station) => (
                     <option key={station.station_id} value={station.station_id}>
                       {station.station_name}
@@ -146,9 +163,10 @@ export default function Home() {
                 <select
                   value={destinationId}
                   onChange={(e) => setDestinationId(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
+                  disabled={stationLoading}
+                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Go to...</option>
+                  <option value="">{stationLoading ? 'Loading stations...' : 'Go to...'}</option>
                   {stations.map((station) => (
                     <option key={station.station_id} value={station.station_id}>
                       {station.station_name}

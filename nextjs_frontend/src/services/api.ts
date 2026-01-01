@@ -45,9 +45,9 @@ export interface ScheduleItem {
     trip_headsign?: string;
 }
 
-export const getStations = async (route_id?: string): Promise<Station[]> => {
+export const getStations = async (route_id?: string, serviceType?: string): Promise<Station[]> => {
     const response = await api.get('/stations', {
-        params: { route_id }
+        params: { route_id, service_type: serviceType }
     });
     // Map backend GTFS format (stop_id, stop_name) to frontend interface (station_id, station_name)
     return response.data.map((stop: any) => ({

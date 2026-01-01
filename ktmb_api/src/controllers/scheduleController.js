@@ -52,7 +52,7 @@ const getRoutes = async (req, res) => {
 };
 
 const getStations = async (req, res) => {
-    const { route_id } = req.query;
+    const { route_id, service_type } = req.query;
 
     try {
         let query = 'SELECT id as stop_id, name as stop_name, code as stop_code FROM stations';
@@ -68,6 +68,18 @@ const getStations = async (req, res) => {
                 WHERE sch.route_id = $1
             `;
             params.push(route_id);
+        } else if (service_type) {
+            // Filter stations by service type
+            query = `
+                SELECT DISTINCT s.id as stop_id, s.name as stop_name, s.code as stop_code
+                FROM stations s
+                JOIN stop_times st ON s.id = st.station_id
+                JOIN trips t ON st.trip_id = t.id
+                JOIN schedules sch ON t.schedule_id = sch.id
+                JOIN routes r ON sch.route_id = r.id
+                WHERE r.service_type = $1
+            `;
+            params.push(service_type);
         }
 
         query += ' ORDER BY stop_name';
