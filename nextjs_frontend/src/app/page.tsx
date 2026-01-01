@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getStations, searchTrips, Station, TripSearchResult } from '@/services/api';
-import { Train, MapPin, Calendar, ArrowRight, Clock, User } from 'lucide-react';
+import { Train, MapPin, Calendar, ArrowRight, Clock, User, ArrowLeftRight } from 'lucide-react';
 
 import ClockComponent from '@/components/Clock';
 
@@ -79,6 +79,12 @@ export default function Home() {
     setHasSearched(false);
   };
 
+  const handleSwap = () => {
+    if (stationLoading) return;
+    setOriginId(destinationId);
+    setDestinationId(originId);
+  };
+
   // Helper to format arrival/departure HH:mm:ss to HH:mm
   const formatTime = (time: string) => time ? time.substring(0, 5) : '--:--';
 
@@ -152,9 +158,15 @@ export default function Home() {
                 </select>
               </div>
 
-              {/* Arrow Icon (Hidden on mobile) */}
-              <div className="hidden md:flex justify-center pb-3">
-                <ArrowRight className="text-gray-300" />
+              {/* Swap Button (Hidden on mobile) */}
+              <div className="hidden md:flex justify-center pb-1">
+                <button
+                  onClick={handleSwap}
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
+                  title="Swap Origin and Destination"
+                >
+                  <ArrowLeftRight size={20} />
+                </button>
               </div>
 
               {/* Destination */}
