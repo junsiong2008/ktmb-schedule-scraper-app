@@ -13,6 +13,7 @@ export default function Home() {
   const [destinationId, setDestinationId] = useState<string>('');
   // Default date to today yyyy-MM-dd in Malaysia time (simple approximation or ISO split)
   const [date, setDate] = useState<string>('');
+  const [time, setTime] = useState<string>('');
   const [serviceType, setServiceType] = useState<string>('Komuter');
 
   // Results state
@@ -29,7 +30,10 @@ export default function Home() {
       // Adjust to UTC+8 manually for simple default string
       const myTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
       const todayStr = myTime.toISOString().split('T')[0];
+      const timeStr = myTime.toISOString().split('T')[1].substring(0, 5);
+
       setDate(todayStr); // Only set date on mount
+      setTime(timeStr);
     };
     init();
   }, []);
@@ -62,7 +66,7 @@ export default function Home() {
     setLoading(true);
     setHasSearched(true);
     try {
-      const results = await searchTrips(originId, destinationId, date, serviceType);
+      const results = await searchTrips(originId, destinationId, date, serviceType, time);
       setTrips(results);
     } catch (error) {
       console.error('Search failed', error);
@@ -200,6 +204,20 @@ export default function Home() {
                     className="w-full p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
                   />
                   <Calendar className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                </div>
+              </div>
+
+              {/* Time Picker */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Travel Time</label>
+                <div className="relative">
+                  <input
+                    type="time"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    className="w-full p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
+                  />
+                  <Clock className="absolute left-3 top-3.5 text-gray-400" size={18} />
                 </div>
               </div>
 

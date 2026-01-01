@@ -248,7 +248,13 @@ const searchTrips = async (req, res) => {
     // Get current time to filter past trips if searching for today
     const currentDate = getCurrentDate();
     let filterTime = '00:00:00';
-    if (date === currentDate) {
+
+    // If user provided a time, use it
+    if (req.query.time) {
+        filterTime = req.query.time;
+    }
+    // Otherwise fallback to current time if date is today
+    else if (date === currentDate) {
         filterTime = getCurrentTimeHHMMSS();
     }
 
