@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const scheduleRoutes = require('./routes/scheduleRoutes');
+const gtfsRoutes = require('./routes/gtfsRoutes');
 require('dotenv').config();
 
 const app = express();
@@ -10,6 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api', scheduleRoutes);
+app.use('/api/gtfs', gtfsRoutes);
 
 app.get('/', (req, res) => {
     res.send('KTMB API is running');

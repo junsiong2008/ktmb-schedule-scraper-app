@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { getStations, searchTrips, Station, TripSearchResult } from '@/services/api';
-import { Train, MapPin, Calendar, ArrowRight, Clock, User, ArrowLeftRight } from 'lucide-react';
+import { Train, MapPin, Calendar, ArrowRight, Clock, User, ArrowLeftRight, Map } from 'lucide-react';
 
 import ClockComponent from '@/components/Clock';
 
@@ -104,6 +105,11 @@ export default function Home() {
             <h1 className="text-2xl font-bold tracking-tight">Next Stop</h1>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/live" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium">
+              <Map size={18} />
+              <span className="hidden sm:inline">Live Map</span>
+              <span className="bg-yellow-400 text-blue-900 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Beta</span>
+            </Link>
             <ClockComponent />
           </div>
         </div>
@@ -242,6 +248,8 @@ export default function Home() {
           </div>
         </div>
 
+
+
         {/* Results List */}
         {hasSearched && !loading && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-500">
@@ -299,6 +307,6 @@ export default function Home() {
         )}
 
       </div>
-    </main>
+    </main >
   );
 }
