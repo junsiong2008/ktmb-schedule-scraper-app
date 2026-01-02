@@ -19,8 +19,13 @@ def verify():
             
         # Check specific recent insertion
         cursor.execute("SELECT name FROM routes ORDER BY id DESC LIMIT 1")
-        last_route = cursor.fetchone()
-        print(f"Last Route Inserted: {last_route[0] if last_route else 'None'}")
+        last_route_row = cursor.fetchone()
+        print(f"Last Route Inserted: {last_route_row[0] if last_route_row else 'None'}")
+
+        # Check ETS specific
+        cursor.execute("SELECT COUNT(*) FROM trips t JOIN schedules s ON t.schedule_id = s.id JOIN routes r ON s.route_id = r.id WHERE r.service_type = 'ETS'")
+        ets_count = cursor.fetchone()[0]
+        print(f"Total ETS Trips: {ets_count}")
 
         conn.close()
     except Exception as e:

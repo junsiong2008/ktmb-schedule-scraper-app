@@ -11,10 +11,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Malay Month Mapping
+# Malay Month Mapping
 MONTH_MAPPING = {
     "JANUARI": 1, "FEBRUARI": 2, "MAC": 3, "APRIL": 4, "MEI": 5, "JUN": 6,
     "JULAI": 7, "OGOS": 8, "SEPTEMBER": 9, "OKTOBER": 10, "NOVEMBER": 11, "DISEMBER": 12,
-    "DIS": 12 # Abbreviation for DISEMBER
+    "DIS": 12, # Abbreviation for DISEMBER
+    "JAN": 1, "FEB": 2, "APR": 4, "MAY": 5, "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12 # Common short forms
 }
 
 def get_db_connection():
@@ -51,8 +53,18 @@ def extract_metadata(df, filename=""):
     
     # Attempt to read from file content first
     meta_row = ""
-    if df.shape[0] > 1:
-        meta_row = str(df.iloc[1, 0]) if pd.notna(df.iloc[1, 0]) else ""
+    # Scan first 5 rows for metadata
+    found_metadata = False
+    for i in range(min(5, df.shape[0])):
+        if pd.notna(df.iloc[i, 0]):
+            val = str(df.iloc[i, 0]).upper()
+            if "LALUAN" in val or "ETS" in val or "MULAI" in val:
+                meta_row = val
+                found_metadata = True
+                break
+    
+    if not found_metadata and df.shape[0] > 1:
+         meta_row = str(df.iloc[1, 0]) if pd.notna(df.iloc[1, 0]) else ""
     
     # Defaults
     service_type = None
@@ -86,14 +98,16 @@ def extract_metadata(df, filename=""):
     # Fallback to Filename or Header inference for ETS
     if route_name == "Unknown Route" and service_type == "ETS":
         # Check specific headers in file to guess direction/route
-        # Row 2 (index 2) usually has "TREN KE UTARA" or "TREN KE SELATAN"
+        # Scan first few rows for direction
         direction_hint = ""
-        if df.shape[0] > 2:
-            row2_val = str(df.iloc[2, 0])
-            if "UTARA" in row2_val.upper() or "NORTHBOUND" in row2_val.upper():
+        for i in range(min(5, df.shape[0])):
+            row_val = str(df.iloc[i, 0]).upper()
+            if "UTARA" in row_val or "NORTHBOUND" in row_val:
                 direction_hint = "Northbound"
-            elif "SELATAN" in row2_val.upper() or "SOUTHBOUND" in row2_val.upper():
+                break
+            elif "SELATAN" in row_val or "SOUTHBOUND" in row_val:
                 direction_hint = "Southbound"
+                break
         
         if direction_hint:
              # ETS is usually Gemas - Padang Besar
@@ -112,7 +126,7 @@ def extract_metadata(df, filename=""):
         date_str = mulai_match.group(1).strip()
         valid_from = parse_malay_date(date_str)
     
-    # Fallback to filename regex (e.g. "12 Dis 2025")
+    # Fallback to filename regex (e.g. "12 Dis 2025" or "1 Jan 2026")
     if not valid_from:
         date_match = re.search(r"(\d{1,2} [a-zA-Z]+ \d{4})", filename)
         if date_match:
@@ -154,16 +168,43 @@ def ingest_csv(csv_path, dry_run=False):
             return # Skip instead of crashing
     
     # Find the header row (containing "TRAIN NUMBER" or "STESEN")
-    header_row_idx = None
+    stesen_row_idx = None
     for idx, row in raw_df.iterrows():
         first_col = str(row[0]).upper()
         if "TRAIN NUMBER" in first_col or "STESEN" in first_col or "STATION" in first_col or "NOMBOR TREN" in first_col:
-            header_row_idx = idx
+            stesen_row_idx = idx
             break
             
-    if header_row_idx is None:
+    if stesen_row_idx is None:
         print("Error: Could not find Header row (TRAIN NUMBER / STATION).")
         return
+
+    # Check if this row actually contains train numbers (cols > 0)
+    # If not, check the next row
+    header_row_idx = stesen_row_idx
+    header_series = raw_df.iloc[stesen_row_idx]
+    
+    has_data = False
+    for col_idx in range(1, len(header_series)):
+        if pd.notna(header_series.iloc[col_idx]) and str(header_series.iloc[col_idx]).strip():
+            has_data = True
+            break
+    
+    if not has_data:
+        # Check next row
+        next_idx = stesen_row_idx + 1
+        if next_idx < len(raw_df):
+            next_series = raw_df.iloc[next_idx]
+            # Check if THIS has data
+            has_next_data = False
+            for col_idx in range(1, len(next_series)):
+                 if pd.notna(next_series.iloc[col_idx]) and str(next_series.iloc[col_idx]).strip():
+                    has_next_data = True
+                    break
+            
+            if has_next_data:
+                print(f"Detected split header. 'STESEN' at {stesen_row_idx}, Train Numbers at {next_idx}")
+                header_row_idx = next_idx
 
     # Extract the header row content
     # header_row = raw_df.iloc[header_row_idx].tolist()
@@ -173,7 +214,8 @@ def ingest_csv(csv_path, dry_run=False):
     # df_data = raw_df 
     
     # Identify Train Columns by Index
-    col_idx_to_train_no = {}
+    # Map col_idx -> List of train numbers (since one cell might have multiple)
+    col_idx_to_train_nos = {}
     
     header_row_series = raw_df.iloc[header_row_idx]
     
@@ -181,16 +223,18 @@ def ingest_csv(csv_path, dry_run=False):
     for col_idx in range(1, len(header_row_series)):
         cell_val = header_row_series.iloc[col_idx] if hasattr(header_row_series, 'iloc') else header_row_series[col_idx]
         if pd.notna(cell_val) and isinstance(cell_val, str) and cell_val.strip():
-             # Check if it looks like a train number (digits) or just process it
-             # Some have non-digits? Usually just digits.
-             train_no = cell_val.strip()
-             col_idx_to_train_no[col_idx] = train_no
+             # Check if it contains multiple train numbers separated by space or newline
+             cleaned_val = cell_val.strip().replace('\n', ' ')
+             train_nos = [t.strip() for t in cleaned_val.split() if t.strip()]
              
-    if not col_idx_to_train_no:
+             if train_nos:
+                 col_idx_to_train_nos[col_idx] = train_nos
+             
+    if not col_idx_to_train_nos:
          print("Error: No train numbers found in header.")
          return
     
-    print(f"Found {len(col_idx_to_train_no)} train columns.")
+    print(f"Found {len(col_idx_to_train_nos)} train columns (some may have merged trains).")
     
     conn = None
     if not dry_run:
@@ -217,8 +261,8 @@ def ingest_csv(csv_path, dry_run=False):
             schedule_id = cursor.fetchone()[0]
             
             # 3. Create Trips
-            # We map the DataFrame column NAME (from df_data) to the created Trip ID
-            col_to_trip_id = {}
+            # We map the DataFrame column INDEX to a LIST of created Trip IDs
+            col_to_trip_ids = {}
             
             # Direction Inference fallback
             direction = "Unknown"
@@ -228,26 +272,32 @@ def ingest_csv(csv_path, dry_run=False):
                  direction = "Southbound"
 
             # Iterate through identified column indices
-            for col_idx, train_no in col_idx_to_train_no.items():
-                cursor.execute("""
-                    INSERT INTO trips (schedule_id, train_number, direction)
-                    VALUES (%s, %s, %s)
-                    RETURNING id
-                """, (schedule_id, train_no, direction))
-                trip_id = cursor.fetchone()[0]
-                col_to_trip_id[col_idx] = trip_id
+            for col_idx, train_nos in col_idx_to_train_nos.items():
+                trip_ids = []
+                for train_no in train_nos:
+                    cursor.execute("""
+                        INSERT INTO trips (schedule_id, train_number, direction)
+                        VALUES (%s, %s, %s)
+                        RETURNING id
+                    """, (schedule_id, train_no, direction))
+                    trip_ids.append(cursor.fetchone()[0])
+                col_to_trip_ids[col_idx] = trip_ids
 
             conn.commit()
-            print(f"Created Schedule ID: {schedule_id} with {len(col_to_trip_id)} trips.")
+            total_trips = sum(len(ids) for ids in col_to_trip_ids.values())
+            print(f"Created Schedule ID: {schedule_id} with {total_trips} trips.")
         else:
              # Dry run simulation
-             # Dry run simulation
-             col_to_trip_id = {}
+             col_to_trip_ids = {}
+             total_trips = 0
              # Just map to dummy IDs
-             for col_idx, train_no in col_idx_to_train_no.items():
-                 col_to_trip_id[col_idx] = f"dry_trip_{col_idx}_{train_no}"
+             for col_idx, train_nos in col_idx_to_train_nos.items():
+                 # Create a dummy ID for EACH train number in the cell
+                 dummy_ids = [f"dry_trip_{train_no}" for train_no in train_nos]
+                 col_to_trip_ids[col_idx] = dummy_ids
+                 total_trips += len(dummy_ids)
              
-             print(f"Dry Run: Would create {len(col_to_trip_id)} trips.")
+             print(f"Dry Run: Would create {total_trips} trips.")
 
 
         # 4. Process Stop Times
@@ -281,7 +331,7 @@ def ingest_csv(csv_path, dry_run=False):
                 station_id = cursor.fetchone()[0]
 
             # Iterate over valid train columns
-            for col_idx, trip_id in col_to_trip_id.items():
+            for col_idx, trip_ids in col_to_trip_ids.items():
                 time_val = str(row[col_idx]).strip()
                 
                 # Check valid time format (HH:MM)
@@ -300,10 +350,12 @@ def ingest_csv(csv_path, dry_run=False):
                                 if h >= 24: h -= 24
                                 time_formatted = f"{h:02d}:{m:02d}:00"
                                 
-                                if not dry_run:
-                                    stop_times_batch.append((trip_id, station_id, time_formatted, time_formatted, stop_seq))
-                                else:
-                                    pass # Dry run, just parsing
+                                # Insert stop time for EVERY trip sharing this column
+                                for trip_id in trip_ids:
+                                    if not dry_run:
+                                        stop_times_batch.append((trip_id, station_id, time_formatted, time_formatted, stop_seq))
+                                    else:
+                                        pass # Dry run
                     except ValueError:
                         pass # Not a time
                         
