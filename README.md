@@ -45,7 +45,7 @@ The backend API is located in the `ktmb_api` directory.
     ```
     You should see: `Server is running on port 3000`
 
-### 2. Frontend Application (Port 3001)
+### 2. Frontend Application (Port: 3001)
 
 The frontend application is located in the `nextjs_frontend` directory.
 
