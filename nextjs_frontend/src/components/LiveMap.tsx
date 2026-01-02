@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { useTheme } from 'next-themes';
 
 // Fix for default marker icon in Next.js / Webpack
 // @ts-ignore
@@ -42,6 +43,8 @@ interface VehiclePosition {
 export default function LiveMap() {
     const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === 'dark';
 
     const fetchVehicles = async () => {
         try {
@@ -68,9 +71,9 @@ export default function LiveMap() {
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-wrap gap-3 items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex flex-wrap gap-3 items-center justify-between bg-white dark:bg-white/5 dark:backdrop-blur-md p-4 rounded-xl shadow-sm border border-gray-100 dark:border-white/10 transition-colors">
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-100">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium border border-blue-100 dark:border-blue-800 transition-colors">
                         <span className="relative flex h-2.5 w-2.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
@@ -78,16 +81,19 @@ export default function LiveMap() {
                         {vehicles.length} Active Trains
                     </div>
                 </div>
-                <div className="text-xs text-gray-500 font-medium bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium bg-gray-50 dark:bg-white/10 px-3 py-1.5 rounded-full border border-gray-100 dark:border-white/5 transition-colors">
                     Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : '...'}
                 </div>
             </div>
 
-            <div className="h-[calc(100vh-250px)] min-h-[500px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 relative">
+            <div className="h-[calc(100vh-250px)] min-h-[500px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-white/10 relative transition-colors">
                 <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }}>
                     <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                        url={isDark
+                            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                            : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                        }
                     />
                     {vehicles.map((v) => (
                         v.vehicle.position && (
@@ -103,7 +109,7 @@ export default function LiveMap() {
                             >
                                 <Popup>
                                     <div className="p-2">
-                                        <h3 className="font-bold text-lg mb-1">Train {v.vehicle.vehicle.label || v.vehicle.vehicle.id}</h3>
+                                        <h3 className="font-bold text-lg mb-1 text-gray-900">Train {v.vehicle.vehicle.label || v.vehicle.vehicle.id}</h3>
                                         <div className="space-y-1 text-sm text-gray-700">
                                             <p><span className="font-semibold">Trip ID:</span> {v.vehicle.trip.tripId}</p>
                                             <p><span className="font-semibold">Route ID:</span> {v.vehicle.trip.routeId}</p>

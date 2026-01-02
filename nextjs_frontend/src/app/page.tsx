@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getStations, searchTrips, Station, TripSearchResult } from '@/services/api';
-import { Train, MapPin, Calendar, ArrowRight, Clock, User, ArrowLeftRight, Map } from 'lucide-react';
-
-import ClockComponent from '@/components/Clock';
+import { MapPin, Calendar, ArrowRight, Clock, ArrowLeftRight } from 'lucide-react';
+import { Header } from '@/components/Header';
 
 export default function Home() {
   // Selection state
@@ -94,44 +93,26 @@ export default function Home() {
   const formatTime = (time: string) => time ? time.substring(0, 5) : '--:--';
 
   return (
-    <main className="min-h-screen bg-gray-50 font-[family-name:var(--font-geist-sans)]">
-      {/* Header */}
-      <header className="bg-blue-600 text-white p-6 shadow-lg sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={handleReset}>
-            <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
-              <Train size={24} />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">Next Stop</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/live" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium">
-              <Map size={18} />
-              <span className="hidden sm:inline">Live Map</span>
-              <span className="bg-yellow-400 text-blue-900 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Beta</span>
-            </Link>
-            <ClockComponent />
-          </div>
-        </div>
-      </header>
+    <main className="min-h-screen bg-gray-50 dark:bg-slate-950 dark:bg-gradient-to-b dark:from-slate-950 dark:to-slate-900 font-[family-name:var(--font-geist-sans)] transition-colors">
+      <Header onLogoClick={handleReset} showLiveMap={true} />
 
       <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
 
         {/* Search Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-md rounded-2xl shadow-sm border border-gray-100 dark:border-white/10 p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 transition-colors">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <MapPin className="text-blue-600" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <MapPin className="text-blue-600 dark:text-blue-500" />
               Plan Your Journey
             </h2>
 
             {/* Service Type Tabs */}
-            <div className="bg-gray-100 p-1 rounded-lg flex self-start md:self-auto">
+            <div className="bg-gray-100 dark:bg-zinc-800 p-1 rounded-lg flex self-start md:self-auto transition-colors">
               <button
                 onClick={() => setServiceType('Komuter')}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${serviceType === 'Komuter'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-900'
+                  ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
               >
                 KTM Komuter
@@ -139,8 +120,8 @@ export default function Home() {
               <button
                 onClick={() => setServiceType('ETS')}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${serviceType === 'ETS'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-900'
+                  ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
               >
                 ETS
@@ -152,16 +133,16 @@ export default function Home() {
             <div className="flex flex-col md:flex-row gap-4 items-end">
               {/* Origin */}
               <div className="w-full md:flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Origin</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Origin</label>
                 <select
                   value={originId}
                   onChange={(e) => setOriginId(e.target.value)}
                   disabled={stationLoading}
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full p-3 rounded-lg border border-gray-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 dark:bg-white/10 focus:bg-white dark:focus:bg-white/20 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">{stationLoading ? 'Loading stations...' : 'Start from...'}</option>
+                  <option value="" className="dark:bg-slate-900">{stationLoading ? 'Loading stations...' : 'Start from...'}</option>
                   {stations.map((station) => (
-                    <option key={station.station_id} value={station.station_id}>
+                    <option key={station.station_id} value={station.station_id} className="dark:bg-slate-900">
                       {station.station_name}
                     </option>
                   ))}
@@ -172,7 +153,7 @@ export default function Home() {
               <div className="hidden md:flex justify-center pb-1">
                 <button
                   onClick={handleSwap}
-                  className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                   title="Swap Origin and Destination"
                 >
                   <ArrowLeftRight size={20} />
@@ -181,16 +162,16 @@ export default function Home() {
 
               {/* Destination */}
               <div className="w-full md:flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destination</label>
                 <select
                   value={destinationId}
                   onChange={(e) => setDestinationId(e.target.value)}
                   disabled={stationLoading}
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full p-3 rounded-lg border border-gray-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 dark:bg-white/10 focus:bg-white dark:focus:bg-white/20 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">{stationLoading ? 'Loading stations...' : 'Go to...'}</option>
+                  <option value="" className="dark:bg-slate-900">{stationLoading ? 'Loading stations...' : 'Go to...'}</option>
                   {stations.map((station) => (
-                    <option key={station.station_id} value={station.station_id}>
+                    <option key={station.station_id} value={station.station_id} className="dark:bg-slate-900">
                       {station.station_name}
                     </option>
                   ))}
@@ -201,7 +182,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Date Picker */}
               <div className="min-w-0">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Travel Date</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Travel Date</label>
                 <div className="relative">
                   <input
                     type="date"
@@ -210,7 +191,7 @@ export default function Home() {
                       setDate(e.target.value);
                       setTime('');
                     }}
-                    className="w-full min-w-0 box-border p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
+                    className="w-full min-w-0 box-border p-3 pl-10 rounded-lg border border-gray-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 dark:bg-white/10 focus:bg-white dark:focus:bg-white/20 text-gray-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]"
                   />
                   <Calendar className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
                 </div>
@@ -218,13 +199,13 @@ export default function Home() {
 
               {/* Time Picker */}
               <div className="min-w-0">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Travel Time</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Travel Time</label>
                 <div className="relative">
                   <input
                     type="time"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    className="w-full min-w-0 box-border p-3 pl-10 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900"
+                    className="w-full min-w-0 box-border p-3 pl-10 rounded-lg border border-gray-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 dark:bg-white/10 focus:bg-white dark:focus:bg-white/20 text-gray-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]"
                   />
                   <Clock className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
                 </div>
@@ -235,7 +216,7 @@ export default function Home() {
                 <button
                   onClick={handleSearch}
                   disabled={!originId || !destinationId || !date || loading}
-                  className="w-full p-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="w-full p-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-900 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -253,27 +234,27 @@ export default function Home() {
         {/* Results List */}
         {hasSearched && !loading && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-500">
-            <h3 className="text-lg font-semibold text-gray-800 px-1">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 px-1">
               Available Trips ({trips.length})
             </h3>
 
             {trips.length === 0 ? (
-              <div className="bg-white p-8 rounded-xl text-center border border-gray-100">
-                <p className="text-gray-500">No trains found for this route on the selected date.</p>
+              <div className="bg-white dark:bg-zinc-900 p-8 rounded-xl text-center border border-gray-100 dark:border-zinc-800 transition-colors">
+                <p className="text-gray-500 dark:text-gray-400">No trains found for this route on the selected date.</p>
               </div>
             ) : (
               trips.map((trip, idx) => (
-                <div key={`${trip.trip_id}-${idx}`} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group">
+                <div key={`${trip.trip_id}-${idx}`} className="bg-white dark:bg-zinc-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800 hover:shadow-md transition-all group">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 
                     {/* Train Info */}
                     <div className="flex items-center gap-4">
-                      <div className="bg-blue-50 text-blue-600 p-3 rounded-lg font-bold text-lg min-w-[3.5rem] text-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 p-3 rounded-lg font-bold text-lg min-w-[3.5rem] text-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
                         {trip.trip_id}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{trip.route_short_name}</p>
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <p className="font-medium text-gray-900 dark:text-white">{trip.route_short_name}</p>
+                        <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                           <span className={`w-2 h-2 rounded-full ${trip.route_type === 1 ? 'bg-orange-400' : 'bg-blue-400'}`}></span>
                           {trip.route_long_name}
                         </div>
@@ -283,20 +264,20 @@ export default function Home() {
                     {/* Times */}
                     <div className="flex items-center gap-8 flex-1 md:justify-center">
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">{formatTime(trip.departure_time)}</p>
-                        <p className="text-xs text-gray-500">Departure</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatTime(trip.departure_time)}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Departure</p>
                       </div>
-                      <ArrowRight className="text-gray-300" />
+                      <ArrowRight className="text-gray-300 dark:text-zinc-700" />
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">{formatTime(trip.arrival_time)}</p>
-                        <p className="text-xs text-gray-500">Arrival</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatTime(trip.arrival_time)}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Arrival</p>
                       </div>
                     </div>
 
                     {/* Headsign / Direction */}
                     <div className="text-right hidden md:block">
                       <p className="text-xs text-gray-400 uppercase tracking-wider">Direction</p>
-                      <p className="text-sm font-medium text-gray-700">{trip.trip_headsign}</p>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{trip.trip_headsign}</p>
                     </div>
 
                   </div>
