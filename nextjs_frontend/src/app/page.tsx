@@ -95,6 +95,25 @@ export default function Home() {
   // Helper to format arrival/departure HH:mm:ss to HH:mm
   const formatTime = (time: string) => time ? time.substring(0, 5) : '--:--';
 
+  // Helper to calculate duration
+  const calculateDuration = (dep: string, arr: string) => {
+    if (!dep || !arr) return '';
+    const [depH, depM] = dep.split(':').map(Number);
+    const [arrH, arrM] = arr.split(':').map(Number);
+    const depMin = depH * 60 + depM;
+    let arrMin = arrH * 60 + arrM;
+
+    // Handle next day arrival (e.g. 23:00 to 01:00)
+    if (arrMin < depMin) arrMin += 24 * 60;
+
+    const diff = arrMin - depMin;
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
+
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-slate-950 dark:bg-gradient-to-b dark:from-slate-950 dark:to-slate-900 font-[family-name:var(--font-geist-sans)] transition-colors">
       <Header onLogoClick={handleReset} showLiveMap={true} />
@@ -280,12 +299,12 @@ export default function Home() {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 
                     {/* Train Info */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 min-w-[30%]">
                       <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 p-3 rounded-lg font-bold text-lg min-w-[3.5rem] text-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
                         {trip.trip_id}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{trip.route_short_name}</p>
+                        <p className="font-medium text-gray-900 dark:text-white text-lg">To {trip.trip_headsign}</p>
                         <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                           <span className={`w-2 h-2 rounded-full ${trip.route_type === 1 ? 'bg-orange-400' : 'bg-blue-400'}`}></span>
                           {trip.route_long_name}
@@ -293,23 +312,24 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Times */}
-                    <div className="flex items-center gap-8 flex-1 md:justify-center">
-                      <div>
+                    {/* Times & Duration */}
+                    <div className="flex items-center justify-between gap-4 flex-1">
+                      <div className="text-center">
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatTime(trip.departure_time)}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Departure</p>
                       </div>
-                      <ArrowRight className="text-gray-300 dark:text-zinc-700" />
-                      <div>
+
+                      <div className="flex flex-col items-center px-4">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-full">
+                          {calculateDuration(trip.departure_time, trip.arrival_time)}
+                        </div>
+                        <ArrowRight className="text-gray-300 dark:text-zinc-600" />
+                      </div>
+
+                      <div className="text-center">
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatTime(trip.arrival_time)}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Arrival</p>
                       </div>
-                    </div>
-
-                    {/* Headsign / Direction */}
-                    <div className="text-right hidden md:block">
-                      <p className="text-xs text-gray-400 uppercase tracking-wider">Direction</p>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{trip.trip_headsign}</p>
                     </div>
 
                   </div>
