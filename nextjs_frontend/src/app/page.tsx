@@ -149,14 +149,14 @@ export default function Home() {
                 </select>
               </div>
 
-              {/* Swap Button (Hidden on mobile) */}
-              <div className="hidden md:flex justify-center pb-1">
+              {/* Swap Button (Visible on all sizes, rotated on mobile) */}
+              <div className="flex justify-center pb-1 self-center md:self-auto">
                 <button
                   onClick={handleSwap}
                   className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                   title="Swap Origin and Destination"
                 >
-                  <ArrowLeftRight size={20} />
+                  <ArrowLeftRight size={20} className="transform rotate-90 md:rotate-0" />
                 </button>
               </div>
 
