@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getStations, searchTrips, Station, TripSearchResult } from '@/services/api';
-import { MapPin, Calendar, ArrowRight, Clock, ArrowLeftRight } from 'lucide-react';
+import { MapPin, Calendar, ArrowRight, Clock, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { Header } from '@/components/Header';
 
 export default function Home() {
@@ -21,6 +21,7 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(false);
   const [stationLoading, setStationLoading] = useState<boolean>(false);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
+  const [isSearchCollapsed, setIsSearchCollapsed] = useState<boolean>(false);
 
   // Initialize
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function Home() {
 
     setLoading(true);
     setHasSearched(true);
+    setIsSearchCollapsed(true);
     try {
       const results = await searchTrips(originId, destinationId, date, serviceType, time);
       setTrips(results);
@@ -81,6 +83,7 @@ export default function Home() {
     setDestinationId('');
     setTrips([]);
     setHasSearched(false);
+    setIsSearchCollapsed(false);
   };
 
   const handleSwap = () => {
@@ -99,17 +102,38 @@ export default function Home() {
       <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
 
         {/* Search Card */}
-        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-md rounded-2xl shadow-sm border border-gray-100 dark:border-white/10 p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 transition-colors">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <MapPin className="text-blue-600 dark:text-blue-500" />
-              Plan Your Journey
-            </h2>
+        <div
+          className="bg-white dark:bg-white/5 dark:backdrop-blur-md rounded-2xl shadow-sm border border-gray-100 dark:border-white/10 p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 transition-colors cursor-pointer md:cursor-default"
+          onClick={() => isSearchCollapsed && setIsSearchCollapsed(false)}
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6">
+            <div className="flex items-center justify-between w-full md:w-auto">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <MapPin className="text-blue-600 dark:text-blue-500" />
+                Plan Your Journey
+              </h2>
 
-            {/* Service Type Tabs */}
-            <div className="bg-gray-100 dark:bg-zinc-800 p-1 rounded-lg flex self-start md:self-auto transition-colors">
+              {/* Mobile Collapse Toggle Indicator */}
+              {hasSearched && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsSearchCollapsed(!isSearchCollapsed);
+                  }}
+                  className="md:hidden p-1 text-gray-500 hover:text-blue-600 dark:text-gray-400"
+                >
+                  {isSearchCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+                </button>
+              )}
+            </div>
+
+            {/* Service Type Tabs - Hide on mobile if collapsed */}
+            <div className={`bg-gray-100 dark:bg-zinc-800 p-1 rounded-lg flex self-start md:self-auto transition-colors ${isSearchCollapsed ? 'hidden md:flex' : 'flex'}`}>
               <button
-                onClick={() => setServiceType('Komuter')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setServiceType('Komuter');
+                }}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${serviceType === 'Komuter'
                   ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -118,7 +142,10 @@ export default function Home() {
                 KTM Komuter
               </button>
               <button
-                onClick={() => setServiceType('ETS')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setServiceType('ETS');
+                }}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${serviceType === 'ETS'
                   ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -129,7 +156,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className={`space-y-6 ${isSearchCollapsed ? 'hidden md:block' : 'block'}`}>
             <div className="flex flex-col md:flex-row gap-4 items-end">
               {/* Origin */}
               <div className="w-full md:flex-1">
@@ -232,19 +259,24 @@ export default function Home() {
 
 
         {/* Results List */}
-        {hasSearched && !loading && (
+        {hasSearched && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-500">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 px-1">
-              Available Trips ({trips.length})
+              Available Trips {loading ? '' : `(${trips.length})`}
             </h3>
 
-            {trips.length === 0 ? (
-              <div className="bg-white dark:bg-zinc-900 p-8 rounded-xl text-center border border-gray-100 dark:border-zinc-800 transition-colors">
+            {loading ? (
+              <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md p-12 rounded-xl border border-gray-100 dark:border-white/10 flex flex-col items-center justify-center text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400 mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-300 animate-pulse">Searching for available trains...</p>
+              </div>
+            ) : trips.length === 0 ? (
+              <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md p-8 rounded-xl text-center border border-gray-100 dark:border-white/10 transition-colors">
                 <p className="text-gray-500 dark:text-gray-400">No trains found for this route on the selected date.</p>
               </div>
             ) : (
               trips.map((trip, idx) => (
-                <div key={`${trip.trip_id}-${idx}`} className="bg-white dark:bg-zinc-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800 hover:shadow-md transition-all group">
+                <div key={`${trip.trip_id}-${idx}`} className="bg-white/80 dark:bg-white/5 backdrop-blur-md p-5 rounded-xl shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-md transition-all group">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 
                     {/* Train Info */}
