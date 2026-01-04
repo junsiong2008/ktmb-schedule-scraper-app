@@ -146,6 +146,28 @@ export default function Home() {
               )}
             </div>
 
+            {/* Search Summary (Visible only when collapsed) */}
+            {isSearchCollapsed && hasSearched && (
+              <div className="md:hidden w-full text-sm text-gray-600 dark:text-gray-400 -mt-2 mb-2 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {stations.find(s => s.station_id === originId)?.station_name || originId}
+                  </span>
+                  <ArrowRight size={14} className="text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {stations.find(s => s.station_id === destinationId)?.station_name || destinationId}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Calendar size={12} /> {date}
+                  <span className="w-1 h-1 bg-gray-300 rounded-full mx-1"></span>
+                  <span className={serviceType === 'ETS' ? 'text-yellow-600 dark:text-yellow-500' : 'text-blue-600 dark:text-blue-400'}>
+                    {serviceType}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Service Type Tabs - Hide on mobile if collapsed */}
             <div className={`bg-gray-100 dark:bg-zinc-800 p-1 rounded-lg flex self-start md:self-auto transition-colors ${isSearchCollapsed ? 'hidden md:flex' : 'flex'}`}>
               <button
