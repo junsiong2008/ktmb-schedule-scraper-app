@@ -51,7 +51,7 @@ export const getStations = async (route_id?: string, serviceType?: string): Prom
     });
     // Map backend GTFS format (stop_id, stop_name) to frontend interface (station_id, station_name)
     return response.data.map((stop: any) => ({
-        station_id: stop.stop_id,
+        station_id: String(stop.stop_id),
         station_name: stop.stop_name
     }));
 };
