@@ -32,6 +32,8 @@ interface VehiclePosition {
             speed: number;
         };
         timestamp: number;
+        currentStatus: number;
+        stopId: string;
         vehicle: {
             id: string;
             label: string;
@@ -112,7 +114,18 @@ export default function LiveMap() {
                                         <h3 className="font-bold text-lg mb-1 text-gray-900">Train {v.vehicle.vehicle.label || v.vehicle.vehicle.id}</h3>
                                         <div className="space-y-1 text-sm text-gray-700">
                                             <p><span className="font-semibold">Trip ID:</span> {v.vehicle.trip.tripId}</p>
-                                            <p><span className="font-semibold">Route ID:</span> {v.vehicle.trip.routeId || 'N/A'}</p>
+                                            <p><span className="font-semibold">Status:</span> {
+                                                (() => {
+                                                    const status = v.vehicle.currentStatus;
+                                                    const stopId = v.vehicle.stopId;
+
+                                                    if (status === 0) return stopId ? `Incoming at ${stopId}` : 'Arriving';
+                                                    if (status === 1) return stopId ? `Stopped at ${stopId}` : 'Stopped';
+                                                    if (status === 2) return stopId ? `In transit to ${stopId}` : 'In Transit';
+
+                                                    return 'Unknown Status';
+                                                })()
+                                            }</p>
                                             <p><span className="font-semibold">Speed:</span> {v.vehicle.position.speed?.toFixed(1) || 0} km/h</p>
                                             <p><span className="font-semibold">Timestamp:</span> {new Date(v.vehicle.timestamp * 1000).toLocaleTimeString()}</p>
                                         </div>

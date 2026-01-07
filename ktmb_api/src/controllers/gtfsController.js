@@ -57,7 +57,15 @@ const getVehiclePositions = async (req, res) => {
                             bearing: entity.vehicle.position?.bearing,
                             speed: entity.vehicle.position?.speed,
                         },
+                        position: {
+                            latitude: entity.vehicle.position?.latitude,
+                            longitude: entity.vehicle.position?.longitude,
+                            bearing: entity.vehicle.position?.bearing,
+                            speed: entity.vehicle.position?.speed,
+                        },
                         timestamp: getTimestamp(entity.vehicle.timestamp),
+                        currentStatus: entity.vehicle.currentStatus,
+                        stopId: entity.vehicle.stopId,
                         vehicle: {
                             id: entity.vehicle.vehicle?.id,
                             label: entity.vehicle.vehicle?.label,
