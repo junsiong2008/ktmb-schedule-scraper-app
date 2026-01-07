@@ -125,7 +125,7 @@ export default function Home() {
           className="bg-white dark:bg-white/5 dark:backdrop-blur-md rounded-2xl shadow-sm border border-gray-100 dark:border-white/10 p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 transition-colors cursor-pointer md:cursor-default"
           onClick={() => isSearchCollapsed && setIsSearchCollapsed(false)}
         >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6">
+          <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 ${isSearchCollapsed ? 'mb-0' : 'mb-4'} md:mb-6`}>
             <div className="flex items-center justify-between w-full md:w-auto">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <MapPin className="text-blue-600 dark:text-blue-500" />
