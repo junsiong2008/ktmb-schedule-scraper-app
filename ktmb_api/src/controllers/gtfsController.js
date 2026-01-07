@@ -32,6 +32,14 @@ const getVehiclePositions = async (req, res) => {
             new Uint8Array(buffer)
         );
 
+        // Helper to get timestamp as number (handle Long object from protobuf)
+        const getTimestamp = (ts) => {
+            if (!ts) return Date.now() / 1000;
+            if (typeof ts === 'number') return ts;
+            if (ts.low !== undefined) return ts.low; // Handle Long object
+            return Date.now() / 1000;
+        };
+
         const vehiclePositions = feed.entity.map((entity) => {
             if (entity.vehicle) {
                 return {
@@ -39,7 +47,7 @@ const getVehiclePositions = async (req, res) => {
                     vehicle: {
                         trip: {
                             tripId: entity.vehicle.trip?.tripId,
-                            routeId: entity.vehicle.trip?.routeId,
+                            routeId: entity.vehicle.trip?.routeId || entity.vehicle.trip?.route_id,
                             startTime: entity.vehicle.trip?.startTime,
                             startDate: entity.vehicle.trip?.startDate,
                         },
@@ -49,7 +57,7 @@ const getVehiclePositions = async (req, res) => {
                             bearing: entity.vehicle.position?.bearing,
                             speed: entity.vehicle.position?.speed,
                         },
-                        timestamp: entity.vehicle.timestamp,
+                        timestamp: getTimestamp(entity.vehicle.timestamp),
                         vehicle: {
                             id: entity.vehicle.vehicle?.id,
                             label: entity.vehicle.vehicle?.label,
@@ -60,14 +68,6 @@ const getVehiclePositions = async (req, res) => {
             }
             return null;
         }).filter(Boolean);
-
-        // Helper to get timestamp as number (handle Long object from protobuf)
-        const getTimestamp = (ts) => {
-            if (!ts) return Date.now() / 1000;
-            if (typeof ts === 'number') return ts;
-            if (ts.low !== undefined) return ts.low; // Handle Long object
-            return Date.now() / 1000;
-        };
 
         // Update cache
         cachedData = {
