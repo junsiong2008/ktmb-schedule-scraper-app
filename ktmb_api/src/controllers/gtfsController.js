@@ -33,10 +33,29 @@ const getVehiclePositions = async (req, res) => {
         );
 
         // Helper to get timestamp as number (handle Long object from protobuf)
+        // Helper to get timestamp as number (handle Long object from protobuf)
         const getTimestamp = (ts) => {
             if (!ts) return Date.now() / 1000;
+
+            // If it's already a number, return it
             if (typeof ts === 'number') return ts;
-            if (ts.low !== undefined) return ts.low; // Handle Long object
+
+            // If it's a Long object (has low/high or toNumber method)
+            if (ts && typeof ts === 'object') {
+                if (typeof ts.toNumber === 'function') {
+                    return ts.toNumber();
+                }
+                if (ts.low !== undefined) {
+                    return ts.low;
+                }
+            }
+
+            // Try parsing as integer if string
+            if (typeof ts === 'string') {
+                const parsed = parseInt(ts, 10);
+                if (!isNaN(parsed)) return parsed;
+            }
+
             return Date.now() / 1000;
         };
 

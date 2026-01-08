@@ -127,7 +127,12 @@ export default function LiveMap() {
                                                 })()
                                             }</p>
                                             <p><span className="font-semibold">Speed:</span> {v.vehicle.position.speed?.toFixed(1) || 0} km/h</p>
-                                            <p><span className="font-semibold">Timestamp:</span> {new Date(v.vehicle.timestamp * 1000).toLocaleTimeString()}</p>
+                                            <p><span className="font-semibold">Timestamp:</span> {
+                                                (() => {
+                                                    const date = new Date(v.vehicle.timestamp * 1000);
+                                                    return isNaN(date.getTime()) ? 'Unknown Time' : date.toLocaleTimeString();
+                                                })()
+                                            }</p>
                                         </div>
                                     </div>
                                 </Popup>
