@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getStations, searchTrips, Station, TripSearchResult } from '@/services/api';
+import { getStations, searchTrips, getRoutes, Station, TripSearchResult, RouteGroup, Route } from '@/services/api';
 import { MapPin, Calendar, ArrowRight, Clock, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { Header } from '@/components/Header';
 
@@ -23,6 +23,11 @@ export default function Home() {
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [isSearchCollapsed, setIsSearchCollapsed] = useState<boolean>(false);
 
+  // Data state
+  const [routeGroups, setRouteGroups] = useState<RouteGroup[]>([]);
+  const [availableRoutes, setAvailableRoutes] = useState<Route[]>([]);
+  const [selectedRouteId, setSelectedRouteId] = useState<string>('');
+
   // Initialize
   useEffect(() => {
     const init = async () => {
@@ -35,20 +40,80 @@ export default function Home() {
 
       setDate(todayStr); // Only set date on mount
       setTime(timeStr);
+
+      try {
+        const routesData = await getRoutes();
+        setRouteGroups(routesData);
+      } catch (error) {
+        console.error('Failed to fetch routes', error);
+      }
     };
     init();
   }, []);
 
-  // Fetch stations whenever serviceType changes
+  // Update available routes when service type changes
+  // Update available routes when service type changes
+  useEffect(() => {
+    if (routeGroups.length === 0) return;
+
+    // Map serviceType ('Komuter' | 'ETS') to service_name in RouteGroup
+    const serviceNameMap: { [key: string]: string } = {
+      'Komuter': 'KTM Komuter',
+      'ETS': 'ETS'
+    };
+
+    const group = routeGroups.find(g => g.service_name === serviceNameMap[serviceType]);
+    let routes = group ? group.routes : [];
+
+    // Deduplicate routes by normalizing names (e.g. "A to B" and "B to A" -> "A - B")
+    if (serviceType === 'Komuter') {
+      const uniqueRoutes: Route[] = [];
+      const seenNames = new Set();
+
+      routes.forEach(r => {
+        let simplifiedName = r.route_long_name;
+
+        // Handle "KE" (Malay for "to") split
+        if (simplifiedName.includes(' KE ')) {
+          const parts = simplifiedName.split(' KE ').map(s => s.trim());
+          // Sort to ensure A-B and B-A get same key
+          const sortedKey = [...parts].sort().join(' - ');
+          // Use the alphabetical order for display too
+          simplifiedName = sortedKey;
+        }
+
+        if (!seenNames.has(simplifiedName)) {
+          seenNames.add(simplifiedName);
+          // Create a new route object with the simplified name
+          uniqueRoutes.push({
+            ...r,
+            route_long_name: simplifiedName
+          });
+        }
+      });
+      routes = uniqueRoutes;
+    }
+
+    setAvailableRoutes(routes);
+
+    // Default to first route if available
+    if (routes.length > 0) {
+      setSelectedRouteId(routes[0].route_id);
+    } else {
+      setSelectedRouteId('');
+    }
+  }, [serviceType, routeGroups]);
+
+  // Fetch stations whenever serviceType OR selectedRouteId changes
   useEffect(() => {
     const fetchStations = async () => {
       setStationLoading(true);
       try {
-        // Pass undefined for route_id, and the selected serviceType
-        const stationData = await getStations(undefined, serviceType);
+        // Pass selectedRouteId if available, otherwise just serviceType
+        const stationData = await getStations(selectedRouteId || undefined, serviceType);
         setStations(stationData);
 
-        // Reset selections when service type changes (stations might not exist in other service)
+        // Reset selections when stations refresh
         setOriginId('');
         setDestinationId('');
       } catch (error) {
@@ -59,7 +124,7 @@ export default function Home() {
     };
 
     fetchStations();
-  }, [serviceType]);
+  }, [serviceType, selectedRouteId]);
 
   const handleSearch = async () => {
     if (!originId || !destinationId || !date) return;
@@ -198,6 +263,26 @@ export default function Home() {
           </div>
 
           <div className={`space-y-6 ${isSearchCollapsed ? 'hidden md:block' : 'block'}`}>
+
+            {/* Route Selector */}
+            {availableRoutes.length > 0 && (
+              <div className="w-full">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Route / Line</label>
+                <select
+                  value={selectedRouteId}
+                  onChange={(e) => setSelectedRouteId(e.target.value)}
+                  disabled={stationLoading}
+                  className="w-full p-3 rounded-lg border border-gray-200 dark:border-white/10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 dark:bg-white/10 focus:bg-white dark:focus:bg-white/20 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {availableRoutes.map((route) => (
+                    <option key={route.route_id} value={route.route_id} className="dark:bg-slate-900">
+                      {route.route_long_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="flex flex-col md:flex-row gap-4 items-end">
               {/* Origin */}
               <div className="w-full md:flex-1">
@@ -335,7 +420,7 @@ export default function Home() {
                     </div>
 
                     {/* Times & Duration */}
-                    <div className="flex items-center justify-between gap-4 flex-1">
+                    <div className="flex items-center justify-between gap-4 flex-1 md:flex-none md:gap-12">
                       <div className="text-center">
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatTime(trip.departure_time)}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Departure</p>
