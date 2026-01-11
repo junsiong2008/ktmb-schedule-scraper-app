@@ -1,5 +1,6 @@
 const db = require('../config/db');
-const { getCurrentTimeHHMMSS, getCurrentDate, getCurrentDayName } = require('../utils/timeUtils');
+const { getCurrentTimeHHMMSS, getCurrentDate, getCurrentDayName, getDayName } = require('../utils/timeUtils');
+const { checkIsHoliday } = require('../utils/holidayUtils');
 
 const getDayType = (dayName) => {
     const lower = dayName.toLowerCase();
@@ -102,7 +103,9 @@ const getNextTrain = async (req, res) => {
     const currentTime = getCurrentTimeHHMMSS();
     const currentDate = getCurrentDate();
     const currentDayName = getCurrentDayName();
-    const dayType = getDayType(currentDayName);
+    const isHoliday = await checkIsHoliday(currentDate);
+    const baseDayType = getDayType(currentDayName);
+    const dayType = isHoliday ? 'Weekend' : baseDayType;
 
     let params = [from, to, currentTime, dayType, currentDate];
 
@@ -169,7 +172,9 @@ const getScheduleList = async (req, res) => {
     const currentTime = getCurrentTimeHHMMSS();
     const currentDate = getCurrentDate();
     const currentDayName = getCurrentDayName();
-    const dayType = getDayType(currentDayName);
+    const isHoliday = await checkIsHoliday(currentDate);
+    const baseDayType = getDayType(currentDayName);
+    const dayType = isHoliday ? 'Weekend' : baseDayType;
 
     let params = [from, currentTime, dayType, currentDate];
 
@@ -242,8 +247,11 @@ const searchTrips = async (req, res) => {
     }
 
     // Determine day type (Weekday/Weekend)
-    const dayName = require('../utils/timeUtils').getDayName(date);
-    const dayType = getDayType(dayName);
+    // Determine day type (Weekday/Weekend)
+    const dayName = getDayName(date);
+    const baseDayType = getDayType(dayName);
+    const isHoliday = await checkIsHoliday(date);
+    const dayType = isHoliday ? 'Weekend' : baseDayType;
 
     // Get current time to filter past trips if searching for today
     const currentDate = getCurrentDate();
