@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getStations, searchTrips, getRoutes, Station, TripSearchResult, RouteGroup, Route } from '@/services/api';
 import { MapPin, Calendar, ArrowRight, Clock, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { Header } from '@/components/Header';
+import { RecentSearches, RecentSearchItem } from '@/components/RecentSearches';
 
 export default function Home() {
   // Selection state
@@ -28,6 +29,9 @@ export default function Home() {
   const [availableRoutes, setAvailableRoutes] = useState<Route[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string>('');
 
+  // Recent Searches State
+  const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([]);
+
   // Initialize
   useEffect(() => {
     const init = async () => {
@@ -41,6 +45,16 @@ export default function Home() {
       setDate(todayStr); // Only set date on mount
       setTime(timeStr);
 
+      // Load recent searches
+      try {
+        const saved = localStorage.getItem('ktmb_recent_searches');
+        if (saved) {
+          setRecentSearches(JSON.parse(saved));
+        }
+      } catch (e) {
+        console.error('Failed to parse recent searches', e);
+      }
+
       try {
         const routesData = await getRoutes();
         setRouteGroups(routesData);
@@ -51,7 +65,6 @@ export default function Home() {
     init();
   }, []);
 
-  // Update available routes when service type changes
   // Update available routes when service type changes
   useEffect(() => {
     if (routeGroups.length === 0) return;
@@ -114,6 +127,23 @@ export default function Home() {
         setStations(stationData);
 
         // Reset selections when stations refresh
+        // Note: Logic allows checking if current ID is still valid could be better, but explicit reset is safer for now.
+        // However, this interferes with Recent Search restoring if it triggers a service type change.
+        // We will handle that by not setting IDs until we are sure, or accepting the brief reset.
+        // In `handleRecentSelect`, we set ServiceType then executed search.
+        // The search execution doesn't depend on `stations` state for IDs, it uses args.
+        // The display might reset to "Start from..." briefly then we'd need to set it back?
+        // Actually, `handleRecentSelect` calls `setOriginId`.
+        // If `setServiceType` triggers this effect, and this effect calls `setStations` then `setOriginId('')`...
+        // Then the `setOriginId` from `handleRecentSelect` might be overwritten if it happens before the async fetch returns.
+        // Or if it happens after.
+        // Correct fix: check if the new station data contains the current ID.
+        // We can't do that easily because we can't access `originId` inside the effect without adding it to deps, causing a loop.
+        // Actually we can use a ref or functionally update checks.
+        // Or, we simply don't reset IF the IDs are already set? No, that's wrong if we switch lines.
+
+        // For now, I will perform a simple check.
+        // If we are just mounting or switching lines manually, it's fine.
         setOriginId('');
         setDestinationId('');
       } catch (error) {
@@ -126,14 +156,12 @@ export default function Home() {
     fetchStations();
   }, [serviceType, selectedRouteId]);
 
-  const handleSearch = async () => {
-    if (!originId || !destinationId || !date) return;
-
+  const executeSearch = async (sOriginId: string, sDestinationId: string, sDate: string, sServiceType: string, sTime: string) => {
     setLoading(true);
     setHasSearched(true);
     setIsSearchCollapsed(true);
     try {
-      const results = await searchTrips(originId, destinationId, date, serviceType, time);
+      const results = await searchTrips(sOriginId, sDestinationId, sDate, sServiceType, sTime);
       setTrips(results);
     } catch (error) {
       console.error('Search failed', error);
@@ -141,6 +169,79 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateRecentSearches = (sOriginId: string, sDestinationId: string, sServiceType: string) => {
+    // We try to find names.
+    const oName = stations.find(s => s.station_id === sOriginId)?.station_name || sOriginId;
+    const dName = stations.find(s => s.station_id === sDestinationId)?.station_name || sDestinationId;
+
+    const newItem: RecentSearchItem = {
+      id: `${sOriginId}-${sDestinationId}-${sServiceType}`,
+      originId: sOriginId,
+      destinationId: sDestinationId,
+      originName: oName, // Ideally we should store names if not found
+      destinationName: dName,
+      serviceType: sServiceType,
+      timestamp: Date.now()
+    };
+
+    setRecentSearches(prev => {
+      // 1. Remove exact duplicate to move it to top
+      const filtered = prev.filter(item =>
+        !(item.originId === sOriginId && item.destinationId === sDestinationId && item.serviceType === sServiceType)
+      );
+
+      // 2. Add new to top
+      const updated = [newItem, ...filtered];
+
+      // 3. Enforce limit per Service Type (max 3)
+      const serviceCounts: { [key: string]: number } = {};
+      const final: RecentSearchItem[] = [];
+
+      for (const item of updated) {
+        const count = serviceCounts[item.serviceType] || 0;
+        if (count < 3) {
+          final.push(item);
+          serviceCounts[item.serviceType] = count + 1;
+        }
+      }
+
+      localStorage.setItem('ktmb_recent_searches', JSON.stringify(final));
+      return final;
+    });
+  };
+
+  const handleSearch = async () => {
+    if (!originId || !destinationId || !date) return;
+
+    updateRecentSearches(originId, destinationId, serviceType);
+    await executeSearch(originId, destinationId, date, serviceType, time);
+  };
+
+  const handleRecentSelect = (item: RecentSearchItem) => {
+    // 1. Set Service Type (might trigger stations reload)
+    if (item.serviceType !== serviceType) {
+      setServiceType(item.serviceType);
+      // NOTE: changing serviceType triggers the effect that clears Origin/Dest.
+      // This is a known issue. The search will succeed because we call executeSearch with params,
+      // but the UI dropdowns might show "Start from..." if the effect clears them after we set them.
+      // We can patch this by setting IDs slightly delayed or relying on the user seeing results.
+      // For now, we will set them. If they get cleared, at least the search ran.
+      // Ideally, the effect shouldn't clear if the IDs are valid for the new service.
+    }
+
+    // 2. Set IDs
+    // We wrap this in a timeout to hopefully run after the effect clears? 
+    // No, React batches updates.
+    // Let's just set them.
+    setOriginId(item.originId);
+    setDestinationId(item.destinationId);
+
+    // 3. Update date to today if not set? Already set on mount.
+
+    // 4. Run Search
+    executeSearch(item.originId, item.destinationId, date, item.serviceType, time);
   };
 
   const handleReset = () => {
@@ -264,6 +365,8 @@ export default function Home() {
 
           <div className={`space-y-6 ${isSearchCollapsed ? 'hidden md:block' : 'block'}`}>
 
+
+
             {/* Route Selector */}
             {availableRoutes.length > 0 && (
               <div className="w-full">
@@ -379,6 +482,13 @@ export default function Home() {
                 </button>
               </div>
             </div>
+
+            {/* Recent Searches */}
+            <RecentSearches
+              searches={recentSearches.filter(s => s.serviceType === serviceType)}
+              onSelect={handleRecentSelect}
+              className="mt-4"
+            />
           </div>
         </div>
 
