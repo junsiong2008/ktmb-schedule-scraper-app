@@ -1,0 +1,359 @@
+openapi: 3.0.0
+info:
+  title: KTMB Timetable API
+  description: API for accessing KTMB train schedules, routes, stations, and real-time GTFS data.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /api/stations:
+    get:
+      summary: Get list of stations
+      description: Retrieve a list of train stations, optionally filtered by route ID or service type.
+      parameters:
+        - in: query
+          name: route_id
+          schema:
+            type: string
+          description: Filter stations by a specific Route ID.
+        - in: query
+          name: service_type
+          schema:
+            type: string
+            enum: [Komuter, ETS, Intercity]
+          description: Filter stations by service type.
+      responses:
+        '200':
+          description: A list of stations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Station'
+        '500':
+          description: Internal server error.
+
+  /api/routes:
+    get:
+      summary: Get all routes
+      description: Retrieve all available train routes grouped by service type (KTM Komuter, ETS, Intercity).
+      responses:
+        '200':
+          description: A list of route groups.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceGroup'
+        '500':
+          description: Internal server error.
+
+  /api/schedule/next:
+    get:
+      summary: Get next train
+      description: Get the next available train between two stations based on the current time and date.
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema:
+            type: string
+          description: Origin station ID.
+        - in: query
+          name: to
+          required: true
+          schema:
+            type: string
+          description: Destination station ID.
+        - in: query
+          name: route_id
+          schema:
+            type: string
+          description: Optional route ID to filter by.
+      responses:
+        '200':
+          description: Next train details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripDetail'
+        '400':
+          description: Missing required parameters.
+        '500':
+          description: Internal server error.
+
+  /api/schedule/search:
+    get:
+      summary: Search for trips
+      description: Search for all trips between two stations on a specific date.
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema:
+            type: string
+          description: Origin station ID.
+        - in: query
+          name: to
+          required: true
+          schema:
+            type: string
+          description: Destination station ID.
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Date of travel (YYYY-MM-DD).
+        - in: query
+          name: time
+          schema:
+            type: string
+            format: time
+            example: "14:30:00"
+          description: Optional time to filter trips departing after this time.
+        - in: query
+          name: service_type
+          schema:
+            type: string
+          description: Filter by service type.
+      responses:
+        '200':
+          description: List of matching trips.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TripDetail'
+        '400':
+          description: Missing required parameters.
+        '500':
+          description: Internal server error.
+
+  /api/schedule/list:
+    get:
+      summary: Get schedule list for a station
+      description: Get upcoming train departures from a specific station.
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema:
+            type: string
+          description: Station ID.
+        - in: query
+          name: direction
+          schema:
+            type: string
+          description: Filter by trip headsign (direction).
+        - in: query
+          name: route_id
+          schema:
+            type: string
+          description: Filter by route ID.
+      responses:
+        '200':
+          description: List of scheduled departures.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleItem'
+        '400':
+          description: Missing required parameters.
+        '500':
+          description: Internal server error.
+
+  /api/gtfs/vehicle-positions:
+    get:
+      summary: Get real-time vehicle positions
+      description: Fetch real-time GTFS vehicle positions from KTMB API (proxied).
+      responses:
+        '200':
+          description: Real-time vehicle data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GtfsFeed'
+        '500':
+          description: Failed to fetch vehicle positions.
+
+components:
+  schemas:
+    Station:
+      type: object
+      properties:
+        stop_id:
+          type: string
+          description: Station ID.
+        stop_name:
+          type: string
+          description: Name of the station.
+        stop_code:
+          type: string
+          nullable: true
+          description: Code of the station.
+
+    Route:
+      type: object
+      properties:
+        route_id:
+          type: string
+        route_long_name:
+          type: string
+        route_short_name:
+          type: string
+        service_type:
+          type: string
+          enum: [Komuter, ETS, Intercity]
+        route_type:
+          type: integer
+          description: 0 for Komuter, 2 for ETS, 1 for Intercity (Legacy mapping)
+
+    ServiceGroup:
+      type: object
+      properties:
+        service_name:
+          type: string
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Route'
+
+    TripDetail:
+      type: object
+      properties:
+        trip_id:
+          type: string
+        departure_time:
+          type: string
+          format: time
+        arrival_time:
+          type: string
+          format: time
+        route_long_name:
+          type: string
+        route_short_name:
+          type: string
+        route_type:
+          type: string
+        direction:
+          type: integer
+          nullable: true
+        trip_headsign:
+          type: string
+          description: Destination station name.
+
+    ScheduleItem:
+      type: object
+      properties:
+        trip_id:
+          type: string
+        arrival_time:
+          type: string
+          format: time
+        departure_time:
+          type: string
+          format: time
+        stop_sequence:
+          type: integer
+        station_name:
+          type: string
+        trip_headsign:
+          type: string
+        route_long_name:
+          type: string
+        route_short_name:
+          type: string
+        route_type:
+          type: string
+
+    GtfsFeed:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+          description: Feed timestamp (seconds since epoch).
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/VehicleEntity'
+
+    VehicleEntity:
+      type: object
+      properties:
+        id:
+          type: string
+        vehicle:
+          type: object
+          properties:
+            trip:
+              $ref: '#/components/schemas/VehicleTrip'
+            position:
+              $ref: '#/components/schemas/VehiclePosition'
+            timestamp:
+              type: integer
+            currentStatus:
+              type: integer
+              nullable: true
+            stopId:
+              type: string
+              nullable: true
+            vehicle:
+              $ref: '#/components/schemas/VehicleDescriptor'
+
+    VehicleTrip:
+      type: object
+      properties:
+        tripId:
+          type: string
+          nullable: true
+        routeId:
+          type: string
+          nullable: true
+        startTime:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          nullable: true
+
+    VehiclePosition:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: float
+          nullable: true
+        longitude:
+          type: number
+          format: float
+          nullable: true
+        bearing:
+          type: number
+          format: float
+          nullable: true
+        speed:
+          type: number
+          format: float
+          nullable: true
+
+    VehicleDescriptor:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        label:
+          type: string
+          nullable: true
+        licensePlate:
+          type: string
+          nullable: true
