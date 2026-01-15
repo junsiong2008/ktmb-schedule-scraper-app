@@ -13,7 +13,7 @@ This project was inspired by the need to build a personal KTM Komuter train sche
 
 ## Project Structure
 
-- **`ktmb_api`**: Node.js Backend API (Port 3000). Handles data serving and schedule logic.
+- **`ktmb_api`**: Node.js Backend API (Port 3000). Handles data serving and schedule logic. See [detailed API documentation](./ktmb_api/README.md).
 - **`nextjs_frontend`**: Next.js Frontend Application (Port 3001). User interface for browsing schedules.
 - **`ingestion_automation_function`**: Python scripts for data ingestion and automation.
 
