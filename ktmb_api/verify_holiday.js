@@ -18,6 +18,12 @@ const testHoliday = async () => {
     const isHoliday2 = await checkIsHoliday(holidayDate);
     console.log(`Result: ${isHoliday2} (Expected: true)`);
 
+    // Test 3: Check the reported issue date (2026-02-17 - CNY 2026)
+    const issueDate = '2026-02-17';
+    console.log(`Checking reported issue date (${issueDate})...`);
+    const isHoliday3 = await checkIsHoliday(issueDate);
+    console.log(`Result: ${isHoliday3} (Expected: true)`);
+
     console.log('--- Verification End ---');
 };
 
