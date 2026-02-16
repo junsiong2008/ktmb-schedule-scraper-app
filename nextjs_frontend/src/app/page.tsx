@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getStations, searchTrips, getRoutes, Station, TripSearchResult, RouteGroup, Route } from '@/services/api';
-import { MapPin, Calendar, ArrowRight, Clock, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { getStations, searchTrips, getRoutes, getVehiclePositions, Station, TripSearchResult, RouteGroup, Route } from '@/services/api';
+import { MapPin, Calendar, ArrowRight, Clock, ArrowLeftRight, ChevronDown, ChevronUp, Radio } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { RecentSearches, RecentSearchItem } from '@/components/RecentSearches';
 
 export default function Home() {
+  const router = useRouter();
+
   // Selection state
   const [stations, setStations] = useState<Station[]>([]);
   const [originId, setOriginId] = useState<string>('');
@@ -32,6 +35,11 @@ export default function Home() {
   // Recent Searches State
   const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([]);
 
+  // Live tracking state
+  const [liveTripIds, setLiveTripIds] = useState<Set<string>>(new Set());
+  const [dayType, setDayType] = useState<string>('');
+  const [todayStr, setTodayStr] = useState<string>('');
+
   // Initialize
   useEffect(() => {
     const init = async () => {
@@ -39,11 +47,12 @@ export default function Home() {
       const now = new Date();
       // Adjust to UTC+8 manually for simple default string
       const myTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-      const todayStr = myTime.toISOString().split('T')[0];
+      const todayString = myTime.toISOString().split('T')[0];
       const timeStr = myTime.toISOString().split('T')[1].substring(0, 5);
 
-      setDate(todayStr); // Only set date on mount
+      setDate(todayString); // Only set date on mount
       setTime(timeStr);
+      setTodayStr(todayString);
 
       // Load recent searches
       try {
@@ -161,11 +170,28 @@ export default function Home() {
     setHasSearched(true);
     setIsSearchCollapsed(true);
     try {
-      const results = await searchTrips(sOriginId, sDestinationId, sDate, sServiceType, sTime);
-      setTrips(results);
+      const response = await searchTrips(sOriginId, sDestinationId, sDate, sServiceType, sTime);
+      setTrips(response.trips);
+      setDayType(response.day_type);
+
+      // Fetch live vehicle positions if searching for today
+      if (sDate === todayStr) {
+        try {
+          const vehicleData = await getVehiclePositions();
+          const activeIds = new Set(
+            vehicleData.vehicles.map(v => v.vehicle.trip.tripId).filter(Boolean)
+          );
+          setLiveTripIds(activeIds);
+        } catch {
+          setLiveTripIds(new Set());
+        }
+      } else {
+        setLiveTripIds(new Set());
+      }
     } catch (error) {
       console.error('Search failed', error);
       setTrips([]);
+      setLiveTripIds(new Set());
     } finally {
       setLoading(false);
     }
@@ -250,6 +276,8 @@ export default function Home() {
     setTrips([]);
     setHasSearched(false);
     setIsSearchCollapsed(false);
+    setLiveTripIds(new Set());
+    setDayType('');
   };
 
   const handleSwap = () => {
@@ -260,6 +288,13 @@ export default function Home() {
 
   // Helper to format arrival/departure HH:mm:ss to HH:mm
   const formatTime = (time: string) => time ? time.substring(0, 5) : '--:--';
+
+  // Helper to construct GTFS trip ID and check live status
+  const getLiveTripId = (tripId: string): string | null => {
+    if (!dayType || liveTripIds.size === 0) return null;
+    const gtfsTripId = `${dayType}_${tripId}`;
+    return liveTripIds.has(gtfsTripId) ? gtfsTripId : null;
+  };
 
   // Helper to calculate duration
   const calculateDuration = (dep: string, arr: string) => {
@@ -511,20 +546,40 @@ export default function Home() {
                 <p className="text-gray-500 dark:text-gray-400">No trains found for this route on the selected date.</p>
               </div>
             ) : (
-              trips.map((trip, idx) => (
-                <div key={`${trip.trip_id}-${idx}`} className="bg-white/80 dark:bg-white/5 backdrop-blur-md p-5 rounded-xl shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-md transition-all group">
+              trips.map((trip, idx) => {
+                const liveTripId = getLiveTripId(trip.trip_id);
+                const isLive = !!liveTripId;
+
+                const cardContent = (
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 
                     {/* Train Info */}
                     <div className="flex items-center gap-4 min-w-[30%]">
-                      <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 p-3 rounded-lg font-bold text-lg min-w-[3.5rem] text-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <div className={`p-3 rounded-lg font-bold text-lg min-w-[3.5rem] text-center transition-colors ${isLive
+                          ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 group-hover:bg-emerald-600 group-hover:text-white'
+                          : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 group-hover:bg-blue-600 group-hover:text-white'
+                        }`}>
                         {trip.trip_id}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white text-lg">To {trip.trip_headsign}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900 dark:text-white text-lg">To {trip.trip_headsign}</p>
+                          {isLive && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                              Live
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                           <span className={`w-2 h-2 rounded-full ${trip.route_type === 1 ? 'bg-orange-400' : 'bg-blue-400'}`}></span>
                           {trip.route_long_name}
+                          {isLive && (
+                            <span className="ml-1.5 text-emerald-600 dark:text-emerald-400 font-medium">· Tap to track</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -549,9 +604,29 @@ export default function Home() {
                       </div>
                     </div>
 
+                    {/* Live tracking arrow indicator */}
+                    {isLive && (
+                      <div className="hidden md:flex items-center text-emerald-500 dark:text-emerald-400">
+                        <Radio size={20} />
+                      </div>
+                    )}
+
                   </div>
-                </div>
-              ))
+                );
+
+                return (
+                  <div
+                    key={`${trip.trip_id}-${idx}`}
+                    className={`bg-white/80 dark:bg-white/5 backdrop-blur-md p-5 rounded-xl shadow-sm border transition-all group ${isLive
+                        ? 'border-emerald-200 dark:border-emerald-800/50 hover:shadow-lg hover:shadow-emerald-100/50 dark:hover:shadow-emerald-900/20 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700'
+                        : 'border-gray-100 dark:border-white/10 hover:shadow-md'
+                      }`}
+                    onClick={isLive ? () => router.push(`/live?trip=${liveTripId}`) : undefined}
+                  >
+                    {cardContent}
+                  </div>
+                );
+              })
             )}
           </div>
         )}

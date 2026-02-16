@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { useEffect, useState, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useTheme } from 'next-themes';
+import { X } from 'lucide-react';
 
 // Fix for default marker icon in Next.js / Webpack
 // @ts-ignore
@@ -42,7 +43,39 @@ interface VehiclePosition {
     };
 }
 
-export default function LiveMap() {
+interface LiveMapProps {
+    focusTripId?: string | null;
+    onClearFocus?: () => void;
+}
+
+// Sub-component to handle map flying (needs useMap hook inside MapContainer)
+function MapFocuser({ vehicles, focusTripId }: { vehicles: VehiclePosition[]; focusTripId: string | null }) {
+    const map = useMap();
+    const hasFocused = useRef(false);
+
+    useEffect(() => {
+        if (!focusTripId || hasFocused.current) return;
+
+        const target = vehicles.find(v => v.vehicle.trip.tripId === focusTripId);
+        if (target?.vehicle.position) {
+            map.flyTo(
+                [target.vehicle.position.latitude, target.vehicle.position.longitude],
+                14,
+                { duration: 1.5 }
+            );
+            hasFocused.current = true;
+        }
+    }, [vehicles, focusTripId, map]);
+
+    // Reset if focusTripId changes
+    useEffect(() => {
+        hasFocused.current = false;
+    }, [focusTripId]);
+
+    return null;
+}
+
+export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapProps) {
     const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const { resolvedTheme } = useTheme();
@@ -68,11 +101,57 @@ export default function LiveMap() {
         return () => clearInterval(interval);
     }, []);
 
+    // Extract the train number from tripId for display (e.g. "weekday_2067" -> "2067")
+    const getTrainNumber = (tripId: string) => {
+        if (!tripId) return '';
+        const parts = tripId.split('_');
+        return parts.length > 1 ? parts.slice(1).join('_') : tripId;
+    };
+
     // Default center (Kuala Lumpur)
     const center: [number, number] = [3.140853, 101.693207];
 
+    const focusedVehicle = focusTripId
+        ? vehicles.find(v => v.vehicle.trip.tripId === focusTripId)
+        : null;
+
     return (
         <div className="space-y-4">
+            {/* Focused train banner */}
+            {focusTripId && (
+                <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-3">
+                        <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                            Tracking Train {getTrainNumber(focusTripId)}
+                        </span>
+                        {focusedVehicle && (
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                                · {(() => {
+                                    const status = focusedVehicle.vehicle.currentStatus;
+                                    const stopId = focusedVehicle.vehicle.stopId;
+                                    if (status === 0) return stopId ? `Incoming at ${stopId}` : 'Arriving';
+                                    if (status === 1) return stopId ? `Stopped at ${stopId}` : 'Stopped';
+                                    if (status === 2) return stopId ? `In transit to ${stopId}` : 'In Transit';
+                                    return 'Unknown';
+                                })()}
+                            </span>
+                        )}
+                    </div>
+                    {onClearFocus && (
+                        <button
+                            onClick={onClearFocus}
+                            className="p-1 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800 text-emerald-700 dark:text-emerald-300 transition-colors"
+                        >
+                            <X size={16} />
+                        </button>
+                    )}
+                </div>
+            )}
+
             <div className="flex flex-wrap gap-3 items-center justify-between bg-white dark:bg-white/5 dark:backdrop-blur-md p-4 rounded-xl shadow-sm border border-gray-100 dark:border-white/10 transition-colors">
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium border border-blue-100 dark:border-blue-800 transition-colors">
@@ -97,17 +176,24 @@ export default function LiveMap() {
                             : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
                         }
                     />
-                    {vehicles.map((v) => (
-                        v.vehicle.position && (
+                    <MapFocuser vehicles={vehicles} focusTripId={focusTripId} />
+                    {vehicles.map((v) => {
+                        const isFocused = focusTripId && v.vehicle.trip.tripId === focusTripId;
+                        const isDimmed = focusTripId && !isFocused;
+
+                        return v.vehicle.position && (
                             <Marker
                                 key={v.id}
                                 position={[v.vehicle.position.latitude, v.vehicle.position.longitude]}
                                 icon={L.divIcon({
-                                    className: 'custom-icon', // Wrapper class to avoid default styles if needed, or just empty
-                                    html: '<div class="blinking-marker"></div>',
-                                    iconSize: [20, 20],
-                                    iconAnchor: [10, 10]
+                                    className: 'custom-icon',
+                                    html: isFocused
+                                        ? '<div class="focused-marker"></div>'
+                                        : `<div class="blinking-marker${isDimmed ? ' dimmed-marker' : ''}"></div>`,
+                                    iconSize: isFocused ? [28, 28] : [20, 20],
+                                    iconAnchor: isFocused ? [14, 14] : [10, 10],
                                 })}
+                                zIndexOffset={isFocused ? 1000 : 0}
                             >
                                 <Popup>
                                     <div className="p-2">
@@ -137,8 +223,8 @@ export default function LiveMap() {
                                     </div>
                                 </Popup>
                             </Marker>
-                        )
-                    ))}
+                        );
+                    })}
                 </MapContainer>
             </div>
         </div>

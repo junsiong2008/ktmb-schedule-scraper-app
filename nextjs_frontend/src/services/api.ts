@@ -96,8 +96,43 @@ export interface TripSearchResult {
     trip_headsign: string;
 }
 
+export interface TripSearchResponse {
+    day_type: string;
+    trips: TripSearchResult[];
+}
 
-export const searchTrips = async (from: string, to: string, date: string, serviceType?: string, time?: string): Promise<TripSearchResult[]> => {
+export interface VehiclePosition {
+    id: string;
+    vehicle: {
+        trip: {
+            tripId: string;
+            routeId: string;
+            startTime: string;
+            startDate: string;
+        };
+        position: {
+            latitude: number;
+            longitude: number;
+            bearing: number;
+            speed: number;
+        };
+        timestamp: number;
+        currentStatus: number;
+        stopId: string;
+        vehicle: {
+            id: string;
+            label: string;
+            licensePlate: string;
+        };
+    };
+}
+
+export interface VehiclePositionsResponse {
+    timestamp: number;
+    vehicles: VehiclePosition[];
+}
+
+export const searchTrips = async (from: string, to: string, date: string, serviceType?: string, time?: string): Promise<TripSearchResponse> => {
     try {
         const response = await api.get('/schedule/search', {
             params: { from, to, date, service_type: serviceType, time },
@@ -105,7 +140,17 @@ export const searchTrips = async (from: string, to: string, date: string, servic
         return response.data;
     } catch (error) {
         console.error('Error searching trips:', error);
-        return [];
+        return { day_type: '', trips: [] };
+    }
+};
+
+export const getVehiclePositions = async (): Promise<VehiclePositionsResponse> => {
+    try {
+        const response = await api.get('/gtfs/vehicle-positions');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching vehicle positions:', error);
+        return { timestamp: 0, vehicles: [] };
     }
 };
 

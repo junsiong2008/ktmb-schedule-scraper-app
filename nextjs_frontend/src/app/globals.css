@@ -75,3 +75,37 @@ body {
   opacity: 0.6;
   animation: blinking 1.5s infinite ease-out;
 }
+
+.blinking-marker.dimmed-marker {
+  opacity: 0.35;
+}
+
+.blinking-marker.dimmed-marker::after {
+  animation: none;
+  opacity: 0;
+}
+
+/* Focused train marker - green, larger pulse */
+.focused-marker {
+  background-color: #10b981;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: block;
+  position: relative;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  border: 3px solid #ffffff;
+}
+
+.focused-marker::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  border-radius: 50%;
+  background-color: #10b981;
+  opacity: 0.5;
+  animation: blinking 1.2s infinite ease-out;
+}

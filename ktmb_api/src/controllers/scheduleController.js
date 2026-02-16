@@ -307,7 +307,10 @@ const searchTrips = async (req, res) => {
 
     try {
         const result = await db.query(query, params);
-        res.json(result.rows);
+        res.json({
+            day_type: dayType.toLowerCase(),
+            trips: result.rows
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
