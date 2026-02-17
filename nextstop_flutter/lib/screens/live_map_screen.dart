@@ -727,12 +727,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             ),
           ),
           IconButton(
-            onPressed: () {
-              setState(() {
-                _focusTripId = null;
-                _hasFocused = false;
-              });
-            },
+            onPressed: _toggleCarousel,
             icon: Icon(
               Icons.close_rounded,
               size: 18,
