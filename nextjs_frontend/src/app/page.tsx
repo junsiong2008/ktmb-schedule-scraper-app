@@ -36,7 +36,7 @@ export default function Home() {
   const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([]);
 
   // Live tracking state
-  const [liveTripIds, setLiveTripIds] = useState<Set<string>>(new Set());
+  const [liveTrainMap, setLiveTrainMap] = useState<Map<string, string>>(new Map());
   const [dayType, setDayType] = useState<string>('');
   const [todayStr, setTodayStr] = useState<string>('');
 
@@ -178,20 +178,25 @@ export default function Home() {
       if (sDate === todayStr) {
         try {
           const vehicleData = await getVehiclePositions();
-          const activeIds = new Set(
-            vehicleData.vehicles.map(v => v.vehicle.trip.tripId).filter(Boolean)
-          );
-          setLiveTripIds(activeIds);
+          const trainMap = new Map<string, string>();
+          for (const v of vehicleData.vehicles) {
+            const tripId = v.vehicle.trip.tripId;
+            if (tripId) {
+              const trainNum = getTrainNumber(tripId);
+              trainMap.set(trainNum, tripId);
+            }
+          }
+          setLiveTrainMap(trainMap);
         } catch {
-          setLiveTripIds(new Set());
+          setLiveTrainMap(new Map());
         }
       } else {
-        setLiveTripIds(new Set());
+        setLiveTrainMap(new Map());
       }
     } catch (error) {
       console.error('Search failed', error);
       setTrips([]);
-      setLiveTripIds(new Set());
+      setLiveTrainMap(new Map());
     } finally {
       setLoading(false);
     }
@@ -276,7 +281,7 @@ export default function Home() {
     setTrips([]);
     setHasSearched(false);
     setIsSearchCollapsed(false);
-    setLiveTripIds(new Set());
+    setLiveTrainMap(new Map());
     setDayType('');
   };
 
@@ -289,11 +294,16 @@ export default function Home() {
   // Helper to format arrival/departure HH:mm:ss to HH:mm
   const formatTime = (time: string) => time ? time.substring(0, 5) : '--:--';
 
-  // Helper to construct GTFS trip ID and check live status
+  // Helper to extract train number from GTFS trip ID (e.g. "weekday_2067" -> "2067")
+  const getTrainNumber = (gtfsTripId: string): string => {
+    const parts = gtfsTripId.split('_');
+    return parts.length > 1 ? parts.slice(1).join('_') : gtfsTripId;
+  };
+
+  // Match by train number only (ignores weekday/weekend prefix)
   const getLiveTripId = (tripId: string): string | null => {
-    if (!dayType || liveTripIds.size === 0) return null;
-    const gtfsTripId = `${dayType}_${tripId}`;
-    return liveTripIds.has(gtfsTripId) ? gtfsTripId : null;
+    if (liveTrainMap.size === 0) return null;
+    return liveTrainMap.get(tripId) ?? null;
   };
 
   // Helper to calculate duration
@@ -556,8 +566,8 @@ export default function Home() {
                     {/* Train Info */}
                     <div className="flex items-center gap-4 min-w-[30%]">
                       <div className={`p-3 rounded-lg font-bold text-lg min-w-[3.5rem] text-center transition-colors ${isLive
-                          ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 group-hover:bg-emerald-600 group-hover:text-white'
-                          : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 group-hover:bg-blue-600 group-hover:text-white'
+                        ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 group-hover:bg-emerald-600 group-hover:text-white'
+                        : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 group-hover:bg-blue-600 group-hover:text-white'
                         }`}>
                         {trip.trip_id}
                       </div>
@@ -604,12 +614,6 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Live tracking arrow indicator */}
-                    {isLive && (
-                      <div className="hidden md:flex items-center text-emerald-500 dark:text-emerald-400">
-                        <Radio size={20} />
-                      </div>
-                    )}
 
                   </div>
                 );
@@ -618,8 +622,8 @@ export default function Home() {
                   <div
                     key={`${trip.trip_id}-${idx}`}
                     className={`bg-white/80 dark:bg-white/5 backdrop-blur-md p-5 rounded-xl shadow-sm border transition-all group ${isLive
-                        ? 'border-emerald-200 dark:border-emerald-800/50 hover:shadow-lg hover:shadow-emerald-100/50 dark:hover:shadow-emerald-900/20 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700'
-                        : 'border-gray-100 dark:border-white/10 hover:shadow-md'
+                      ? 'border-emerald-200 dark:border-emerald-800/50 hover:shadow-lg hover:shadow-emerald-100/50 dark:hover:shadow-emerald-900/20 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700'
+                      : 'border-gray-100 dark:border-white/10 hover:shadow-md'
                       }`}
                     onClick={isLive ? () => router.push(`/live?trip=${liveTripId}`) : undefined}
                   >
