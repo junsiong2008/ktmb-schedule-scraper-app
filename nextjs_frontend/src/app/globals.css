@@ -97,6 +97,15 @@ body {
   border: 3px solid #ffffff;
 }
 
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .focused-marker::after {
   content: '';
   position: absolute;

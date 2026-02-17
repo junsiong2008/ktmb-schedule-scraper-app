@@ -132,6 +132,23 @@ export interface VehiclePositionsResponse {
     vehicles: VehiclePosition[];
 }
 
+export interface RouteStation {
+    name: string;
+    lat: number;
+    lon: number;
+    distTraveled: number;
+    gtfsStopId: string;
+}
+
+export interface RouteShape {
+    shapeGroup: number;
+    name: string;
+    color: string;
+    gtfsRouteId: string;
+    coordinates: [number, number][];
+    stations: RouteStation[];
+}
+
 export const searchTrips = async (from: string, to: string, date: string, serviceType?: string, time?: string): Promise<TripSearchResponse> => {
     try {
         const response = await api.get('/schedule/search', {
@@ -151,6 +168,16 @@ export const getVehiclePositions = async (): Promise<VehiclePositionsResponse> =
     } catch (error) {
         console.error('Error fetching vehicle positions:', error);
         return { timestamp: 0, vehicles: [] };
+    }
+};
+
+export const getRouteShapes = async (): Promise<RouteShape[]> => {
+    try {
+        const response = await api.get('/gtfs/route-shapes');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching route shapes:', error);
+        return [];
     }
 };
 

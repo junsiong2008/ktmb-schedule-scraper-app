@@ -356,6 +356,7 @@ def deduplicate_shapes(conn, gtfs_stops, gtfs_routes, gtfs_trips, gtfs_stop_time
                 'lon': gtfs_stop['lon'],
                 'stop_sequence': stop_entry['stop_sequence'],
                 'shape_dist_traveled': stop_entry['shape_dist_traveled'],
+                'gtfs_stop_id': stop_entry['stop_id'],
             })
         
         if not coords:
@@ -365,11 +366,12 @@ def deduplicate_shapes(conn, gtfs_stops, gtfs_routes, gtfs_trips, gtfs_stop_time
             for c in coords:
                 cursor.execute("""
                     INSERT INTO route_shapes 
-                    (route_id, station_id, station_name, latitude, longitude, stop_sequence, shape_dist_traveled, shape_group, route_label, route_color)
-                    VALUES (NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (route_id, station_id, station_name, latitude, longitude, stop_sequence, shape_dist_traveled, shape_group, route_label, route_color, gtfs_route_id, gtfs_stop_id)
+                    VALUES (NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (c['station_id'], c['station_name'], c['lat'], c['lon'], 
                       c['stop_sequence'], c['shape_dist_traveled'],
-                      route_counter, route_name, route_color))
+                      route_counter, route_name, route_color,
+                      gtfs_route_id, c['gtfs_stop_id']))
                 total_inserted += 1
     
     if not dry_run:

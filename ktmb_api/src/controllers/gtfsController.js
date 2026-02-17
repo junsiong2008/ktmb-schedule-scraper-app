@@ -133,7 +133,7 @@ const getRouteShapes = async (req, res) => {
         }
 
         const result = await db.query(`
-            SELECT shape_group, route_label, route_color, station_name, latitude, longitude, stop_sequence, shape_dist_traveled
+            SELECT shape_group, route_label, route_color, gtfs_route_id, station_name, latitude, longitude, stop_sequence, shape_dist_traveled, gtfs_stop_id
             FROM route_shapes
             WHERE shape_group IS NOT NULL
             ORDER BY shape_group ASC, stop_sequence ASC
@@ -149,8 +149,10 @@ const getRouteShapes = async (req, res) => {
             const group = row.shape_group;
             if (!groupedRoutes[group]) {
                 groupedRoutes[group] = {
+                    shapeGroup: group,
                     name: row.route_label || `Route ${group}`,
                     color: row.route_color || '#888888',
+                    gtfsRouteId: row.gtfs_route_id,
                     coordinates: [],
                     stations: [],
                 };
@@ -161,6 +163,7 @@ const getRouteShapes = async (req, res) => {
                 lat: row.latitude,
                 lon: row.longitude,
                 distTraveled: row.shape_dist_traveled,
+                gtfsStopId: row.gtfs_stop_id,
             });
         }
 
@@ -180,4 +183,3 @@ module.exports = {
     getVehiclePositions,
     getRouteShapes,
 };
-
