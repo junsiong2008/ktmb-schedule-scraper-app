@@ -42,7 +42,23 @@ jobs:
       - name: Build and Push Container
         working-directory: ktmb_api
         run: |
-          gcloud builds submit --tag ${{ env.IMAGE_NAME }}
+          BUILD_ID=$(gcloud builds submit --tag ${{ env.IMAGE_NAME }} \
+            --suppress-logs \
+            --format='value(id)')
+    
+        echo "Build ID: $BUILD_ID"
+        echo "Logs: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
+        
+        STATUS=$(gcloud builds describe $BUILD_ID \
+          --format='value(status)' \
+          --project=${{ env.PROJECT_ID }})
+        
+        echo "Build status: $STATUS"
+        
+        if [ "$STATUS" != "SUCCESS" ]; then
+          echo "Build failed with status: $STATUS"
+          exit 1
+        fi
 
       - name: Deploy to Cloud Run
         run: |
