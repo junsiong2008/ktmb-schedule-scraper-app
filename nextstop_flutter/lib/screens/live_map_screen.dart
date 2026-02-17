@@ -31,9 +31,15 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   bool _hasFocused = false;
   Timer? _refreshTimer;
 
+  // Carousel state
+  bool _showCarousel = false;
+  late PageController _carouselController;
+  int _currentCarouselIndex = 0;
+
   @override
   void initState() {
     super.initState();
+    _carouselController = PageController(viewportFraction: 0.85);
     _fetchVehicles();
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -54,6 +60,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void dispose() {
     _refreshTimer?.cancel();
     _vehiclesNotifier.dispose();
+    _carouselController.dispose();
     super.dispose();
   }
 
@@ -89,6 +96,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           if (target != null && target.latitude != 0) {
             _mapController.move(LatLng(target.latitude, target.longitude), 14);
             _hasFocused = true;
+            // Also update carousel if it's showing or will show
+            final index = _vehicles.indexWhere((v) => v.tripId == _focusTripId);
+            if (index != -1) {
+              _currentCarouselIndex = index;
+              if (_carouselController.hasClients) {
+                _carouselController.jumpToPage(index);
+              }
+            }
           }
         }
       }
@@ -97,6 +112,66 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       if (mounted) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  void _onCarouselPageChanged(int index) {
+    setState(() {
+      _currentCarouselIndex = index;
+    });
+
+    if (index >= 0 && index < _vehicles.length) {
+      final vehicle = _vehicles[index];
+      if (vehicle.latitude != 0 && vehicle.longitude != 0) {
+        _mapController.move(LatLng(vehicle.latitude, vehicle.longitude), 14);
+        setState(() {
+          _focusTripId = vehicle.tripId;
+        });
+      }
+    }
+  }
+
+  void _toggleCarousel() {
+    setState(() {
+      _showCarousel = !_showCarousel;
+    });
+
+    if (_showCarousel) {
+      if (_vehicles.isNotEmpty) {
+        // If we have a focused trip, try to find it index
+        int initialIndex = 0;
+        if (_focusTripId != null) {
+          final index = _vehicles.indexWhere((v) => v.tripId == _focusTripId);
+          if (index != -1) {
+            initialIndex = index;
+          }
+        } else {
+          // Default to first valid vehicle
+          final index = _vehicles.indexWhere(
+            (v) => v.latitude != 0 && v.longitude != 0,
+          );
+          if (index != -1) {
+            initialIndex = index;
+          }
+        }
+
+        _currentCarouselIndex = initialIndex;
+        // Wait for build to complete so controller is attached
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_carouselController.hasClients) {
+            _carouselController.jumpToPage(initialIndex);
+            // Also center map on open
+            _onCarouselPageChanged(initialIndex);
+          }
+        });
+      }
+    } else {
+      // Closing carousel - reset map and focus
+      setState(() {
+        _focusTripId = null;
+        _hasFocused = false;
+      });
+      _mapController.move(const LatLng(3.140853, 101.693207), 12);
     }
   }
 
@@ -136,162 +211,387 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           ],
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Focused train banner
-          if (_focusTripId != null) _buildFocusBanner(isDark, focusedVehicle),
+          Column(
+            children: [
+              // Focused train banner
+              if (_focusTripId != null && _showCarousel)
+                _buildFocusBanner(isDark, focusedVehicle),
 
-          // Stats bar
-          _buildStatsBar(isDark),
+              // Stats bar
+              _buildStatsBar(isDark),
 
-          // Map
-          Expanded(
-            child: _loading
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          color: AppTheme.primaryBlueLight,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Loading live positions...',
-                          style: TextStyle(color: Colors.grey.shade500),
-                        ),
-                      ],
-                    ),
-                  )
-                : Stack(
-                    children: [
-                      FlutterMap(
-                        mapController: _mapController,
-                        options: MapOptions(
-                          initialCenter: const LatLng(3.140853, 101.693207),
-                          initialZoom: 12,
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate: isDark
-                                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                                : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                            subdomains: const ['a', 'b', 'c', 'd'],
-                          ),
-                          // Add PolylineLayer for routes
-                          if (_routesLoaded)
-                            PolylineLayer(
-                              polylines: _routes.map((route) {
-                                return Polyline(
-                                  points: route.coordinates
-                                      .map((c) => LatLng(c[0], c[1]))
-                                      .toList(),
-                                  strokeWidth: 3.0,
-                                  color: _parseColor(
-                                    route.color,
-                                  ).withValues(alpha: isDark ? 0.5 : 0.6),
-                                );
-                              }).toList(),
+              // Map
+              Expanded(
+                child: _loading
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              color: AppTheme.primaryBlueLight,
                             ),
-                          // Station Markers
-                          if (_routesLoaded)
-                            MarkerLayer(
-                              markers: _routes.expand((route) {
-                                final routeColor = _parseColor(route.color);
-                                return route.stations.map((station) {
-                                  return Marker(
-                                    point: LatLng(station.lat, station.lon),
-                                    width: 20,
-                                    height: 20,
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).hideCurrentSnackBar();
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(station.name),
-                                            duration: const Duration(
-                                              seconds: 1,
-                                            ),
-                                            behavior: SnackBarBehavior.floating,
-                                          ),
-                                        );
-                                      },
-                                      child: Center(
-                                        child: Container(
-                                          width: 12,
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: Colors.transparent,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: routeColor,
-                                              width: 2,
+                            const SizedBox(height: 16),
+                            Text(
+                              'Loading live positions...',
+                              style: TextStyle(color: Colors.grey.shade500),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Stack(
+                        children: [
+                          FlutterMap(
+                            mapController: _mapController,
+                            options: MapOptions(
+                              initialCenter: const LatLng(3.140853, 101.693207),
+                              initialZoom: 12,
+                              onTap: (_, __) {
+                                if (_showCarousel) {
+                                  setState(() => _showCarousel = false);
+                                }
+                              },
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate: isDark
+                                    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                                    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                                subdomains: const ['a', 'b', 'c', 'd'],
+                              ),
+                              // Add PolylineLayer for routes
+                              if (_routesLoaded)
+                                PolylineLayer(
+                                  polylines: _routes.map((route) {
+                                    return Polyline(
+                                      points: route.coordinates
+                                          .map((c) => LatLng(c[0], c[1]))
+                                          .toList(),
+                                      strokeWidth: 3.0,
+                                      color: _parseColor(
+                                        route.color,
+                                      ).withValues(alpha: isDark ? 0.5 : 0.6),
+                                    );
+                                  }).toList(),
+                                ),
+                              // Station Markers
+                              if (_routesLoaded)
+                                MarkerLayer(
+                                  markers: _routes.expand((route) {
+                                    final routeColor = _parseColor(route.color);
+                                    return route.stations.map((station) {
+                                      return Marker(
+                                        point: LatLng(station.lat, station.lon),
+                                        width: 20,
+                                        height: 20,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).hideCurrentSnackBar();
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(station.name),
+                                                duration: const Duration(
+                                                  seconds: 1,
+                                                ),
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                              ),
+                                            );
+                                          },
+                                          child: Center(
+                                            child: Container(
+                                              width: 12,
+                                              height: 12,
+                                              decoration: BoxDecoration(
+                                                color: Colors.transparent,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: routeColor,
+                                                  width: 2,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  );
-                                });
-                              }).toList(),
-                            ),
-                          MarkerLayer(
-                            markers: _vehicles
-                                .where(
-                                  (v) => v.latitude != 0 && v.longitude != 0,
-                                )
-                                .map((v) {
-                                  final isFocused =
-                                      _focusTripId != null &&
-                                      v.tripId == _focusTripId;
-                                  final isDimmed =
-                                      _focusTripId != null && !isFocused;
+                                      );
+                                    });
+                                  }).toList(),
+                                ),
+                              MarkerLayer(
+                                markers: _vehicles
+                                    .where(
+                                      (v) =>
+                                          v.latitude != 0 && v.longitude != 0,
+                                    )
+                                    .map((v) {
+                                      final isFocused =
+                                          (_focusTripId != null &&
+                                              v.tripId == _focusTripId) ||
+                                          (_showCarousel &&
+                                              _vehicles.indexOf(v) ==
+                                                  _currentCarouselIndex);
 
-                                  return Marker(
-                                    point: LatLng(v.latitude, v.longitude),
-                                    width: isFocused ? 32 : 22,
-                                    height: isFocused ? 32 : 22,
-                                    child: GestureDetector(
-                                      onTap: () => _showTrainInfo(
-                                        context,
-                                        v.tripId,
-                                        isDark,
-                                      ),
-                                      child: _TrainMarker(
-                                        isFocused: isFocused,
-                                        isDimmed: isDimmed,
-                                      ),
-                                    ),
-                                  );
-                                })
-                                .toList(),
+                                      final isDimmed =
+                                          (_focusTripId != null &&
+                                              !isFocused) ||
+                                          (_showCarousel && !isFocused);
+
+                                      return Marker(
+                                        point: LatLng(v.latitude, v.longitude),
+                                        width: isFocused ? 32 : 22,
+                                        height: isFocused ? 32 : 22,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            if (_showCarousel) {
+                                              // If carousel is showing, jump to this train
+                                              final index = _vehicles.indexOf(
+                                                v,
+                                              );
+                                              if (index != -1) {
+                                                _carouselController
+                                                    .animateToPage(
+                                                      index,
+                                                      duration: const Duration(
+                                                        milliseconds: 300,
+                                                      ),
+                                                      curve: Curves.easeInOut,
+                                                    );
+                                              }
+                                            } else {
+                                              _showTrainInfo(
+                                                context,
+                                                v.tripId,
+                                                isDark,
+                                              );
+                                            }
+                                          },
+                                          child: _TrainMarker(
+                                            isFocused: isFocused,
+                                            isDimmed: isDimmed,
+                                          ),
+                                        ),
+                                      );
+                                    })
+                                    .toList(),
+                              ),
+                            ],
                           ),
+                          // Legend Button - hide when carousel is active to avoid clutter
+                          if (!_showCarousel)
+                            Positioned(
+                              top: 16,
+                              right: 16,
+                              child: FloatingActionButton.small(
+                                heroTag: 'legend_fab',
+                                onPressed: () => _showLegend(context, isDark),
+                                backgroundColor: isDark
+                                    ? AppTheme.darkCard
+                                    : Colors.white,
+                                foregroundColor: isDark
+                                    ? Colors.white
+                                    : Colors.black87,
+                                child: const Icon(
+                                  Icons.menu_book_rounded,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
-                      // Legend Button
-                      Positioned(
-                        top: 16,
-                        right: 16,
-                        child: FloatingActionButton.small(
-                          heroTag: 'legend_fab',
-                          onPressed: () => _showLegend(context, isDark),
-                          backgroundColor: isDark
-                              ? AppTheme.darkCard
-                              : Colors.white,
-                          foregroundColor: isDark
-                              ? Colors.white
-                              : Colors.black87,
-                          child: const Icon(Icons.menu_book_rounded, size: 20),
+              ),
+            ],
+          ),
+
+          // Carousel
+          if (_showCarousel)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 30,
+              height: 160,
+              child: _buildTrainCarousel(isDark),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrainCarousel(bool isDark) {
+    if (_vehicles.isEmpty) return const SizedBox.shrink();
+
+    return PageView.builder(
+      controller: _carouselController,
+      onPageChanged: _onCarouselPageChanged,
+      itemCount: _vehicles.length,
+      physics: const BouncingScrollPhysics(),
+      itemBuilder: (context, index) {
+        final vehicle = _vehicles[index];
+        final isSelected = index == _currentCarouselIndex;
+
+        // Calculate scale for non-selected items
+        // We'll use a simple approach since we don't have AnimatedBuilder here for the page value
+        // But PageView does snapping so let's just make the card look good.
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          margin: EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: isSelected ? 0 : 10,
+          ),
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppTheme.darkCard.withValues(alpha: 0.95)
+                : Colors.white.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+            border: isSelected
+                ? Border.all(color: AppTheme.primaryBlue, width: 2)
+                : null,
+          ),
+          child: InkWell(
+            onTap: () {
+              if (!isSelected) {
+                _carouselController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              } else {
+                _showTrainInfo(context, vehicle.tripId, isDark);
+              }
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.train_rounded,
+                          color: AppTheme.primaryBlue,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Train ${_getTrainNumber(vehicle.tripId)}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            if (vehicle.vehicleLabel != null)
+                              Text(
+                                vehicle.vehicleLabel!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey[800] : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.speed_rounded,
+                              size: 14,
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${vehicle.speed.round()} km/h',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? Colors.grey[300]
+                                    : Colors.grey[800],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.grey[800]!.withValues(alpha: 0.5)
+                          : Colors.grey[50],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 16,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            vehicle.statusText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark
+                                  ? Colors.grey[300]
+                                  : Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -464,35 +764,67 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppTheme.primaryBlueLight.withValues(alpha: 0.1)
-                  : AppTheme.primaryBlue.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isDark
-                    ? AppTheme.primaryBlueLight.withValues(alpha: 0.2)
-                    : AppTheme.primaryBlue.withValues(alpha: 0.15),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _AnimatedPulse(color: AppTheme.primaryBlueLight, size: 10),
-                const SizedBox(width: 6),
-                Text(
-                  '${_vehicles.length} Active Trains',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? AppTheme.primaryBlueLight
-                        : AppTheme.primaryBlue,
-                  ),
+          GestureDetector(
+            onTap: _toggleCarousel,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _showCarousel
+                    ? (isDark
+                          ? AppTheme.primaryBlue.withValues(alpha: 0.2)
+                          : AppTheme.primaryBlue.withValues(alpha: 0.15))
+                    : (isDark
+                          ? AppTheme.primaryBlueLight.withValues(alpha: 0.1)
+                          : AppTheme.primaryBlue.withValues(alpha: 0.08)),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _showCarousel
+                      ? (isDark
+                            ? AppTheme.primaryBlueLight
+                            : AppTheme.primaryBlue)
+                      : (isDark
+                            ? AppTheme.primaryBlueLight.withValues(alpha: 0.2)
+                            : AppTheme.primaryBlue.withValues(alpha: 0.15)),
+                  width: _showCarousel ? 1.5 : 1,
                 ),
-              ],
+                boxShadow: _showCarousel
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primaryBlue.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          spreadRadius: 0,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_showCarousel)
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 16,
+                      color: isDark
+                          ? AppTheme.primaryBlueLight
+                          : AppTheme.primaryBlue,
+                    )
+                  else
+                    _AnimatedPulse(color: AppTheme.primaryBlueLight, size: 10),
+
+                  const SizedBox(width: 6),
+                  Text(
+                    '${_vehicles.length} Active Trains',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? AppTheme.primaryBlueLight
+                          : AppTheme.primaryBlue,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const Spacer(),
