@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getVehiclePositions, getRouteShapes, VehiclePosition, RouteShape, RouteStation } from '@/services/api';
-import { MapPin, Train, Navigation, ArrowLeft, Map as MapIcon, RefreshCw } from 'lucide-react';
+import { MapPin, Train, Navigation, ArrowLeft, RefreshCw } from 'lucide-react';
 
 interface TripTrackerProps {
     tripId: string;
-    onViewMap: () => void;
     onBack: () => void;
 }
 
@@ -87,15 +86,19 @@ function findTrainPosition(
     return null;
 }
 
-export default function TripTracker({ tripId, onViewMap, onBack }: TripTrackerProps) {
+export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
     const [vehicle, setVehicle] = useState<VehiclePosition | null>(null);
     const [routes, setRoutes] = useState<RouteShape[]>([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+    const [stale, setStale] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const consecutiveMisses = useRef(0);
     const trainMarkerRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const hasAutoScrolled = useRef(false);
+
+    const MISS_THRESHOLD = 3; // Show error only after this many consecutive misses
 
     const fetchData = useCallback(async () => {
         try {
@@ -106,21 +109,37 @@ export default function TripTracker({ tripId, onViewMap, onBack }: TripTrackerPr
 
             // Find the specific vehicle
             const found = vehicleData.vehicles.find(v => v.vehicle.trip.tripId === tripId);
-            setVehicle(found || null);
-            if (!found) {
-                setError('Train not found in live data. It may have completed its journey.');
-            } else {
+            if (found) {
+                setVehicle(found);
                 setError(null);
+                setStale(false);
+                consecutiveMisses.current = 0;
+            } else {
+                consecutiveMisses.current++;
+                if (vehicle) {
+                    // We have cached data — keep it and mark as stale
+                    setStale(true);
+                    if (consecutiveMisses.current >= MISS_THRESHOLD) {
+                        setError('Train not found in live data. It may have completed its journey.');
+                    }
+                } else {
+                    // Never seen this vehicle — show error immediately
+                    setError('Train not found in live data. It may have completed its journey.');
+                }
             }
 
             if (routeData) setRoutes(routeData);
             setLastUpdate(new Date());
         } catch (e) {
-            setError('Failed to fetch tracking data.');
+            // On network error, keep cached data (like LiveMap does)
+            console.error('Failed to fetch tracking data:', e);
+            if (!vehicle) {
+                setError('Failed to fetch tracking data.');
+            }
         } finally {
             setLoading(false);
         }
-    }, [tripId, routes.length]);
+    }, [tripId, routes.length, vehicle]);
 
     // Initial fetch and auto refresh
     useEffect(() => {
@@ -173,22 +192,13 @@ export default function TripTracker({ tripId, onViewMap, onBack }: TripTrackerPr
                         <ArrowLeft size={16} />
                         Back
                     </button>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={fetchData}
-                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-blue-600 transition-colors"
-                            title="Refresh"
-                        >
-                            <RefreshCw size={16} />
-                        </button>
-                        <button
-                            onClick={onViewMap}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-sm font-medium transition-colors"
-                        >
-                            <MapIcon size={14} />
-                            View in Map
-                        </button>
-                    </div>
+                    <button
+                        onClick={fetchData}
+                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Refresh"
+                    >
+                        <RefreshCw size={16} />
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -219,6 +229,9 @@ export default function TripTracker({ tripId, onViewMap, onBack }: TripTrackerPr
                 {lastUpdate && (
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
                         Last updated: {lastUpdate.toLocaleTimeString()}
+                        {stale && !error && (
+                            <span className="ml-2 text-amber-500 dark:text-amber-400">· Using cached position</span>
+                        )}
                     </p>
                 )}
             </div>
