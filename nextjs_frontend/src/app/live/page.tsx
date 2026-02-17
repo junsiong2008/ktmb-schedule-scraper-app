@@ -52,7 +52,7 @@ function LivePageContent() {
                     </div>
                 )}
 
-                <LiveMap focusTripId={focusTripId} onClearFocus={handleClearFocus} />
+                <LiveMap focusTripId={focusTripId} onClearFocus={handleClearFocus} tripOnly={!!focusTripId} />
             </div>
         </main>
     );

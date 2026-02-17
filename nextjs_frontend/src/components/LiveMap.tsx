@@ -46,6 +46,7 @@ interface VehiclePosition {
 interface RouteShape {
     name: string;
     color: string;
+    gtfsRouteId: string;
     coordinates: [number, number][];
     stations: {
         name: string;
@@ -58,6 +59,8 @@ interface RouteShape {
 interface LiveMapProps {
     focusTripId?: string | null;
     onClearFocus?: () => void;
+    /** When true, only show the route and train for the focused trip (no other trains/routes/chrome) */
+    tripOnly?: boolean;
 }
 
 // Sub-component to handle map flying (needs useMap hook inside MapContainer)
@@ -87,7 +90,7 @@ function MapFocuser({ vehicles, focusTripId }: { vehicles: VehiclePosition[]; fo
     return null;
 }
 
-export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapProps) {
+export default function LiveMap({ focusTripId = null, onClearFocus, tripOnly = false }: LiveMapProps) {
     const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
     const [routeShapes, setRouteShapes] = useState<RouteShape[]>([]);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -141,10 +144,18 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
         ? vehicles.find(v => v.vehicle.trip.tripId === focusTripId)
         : null;
 
+    // In tripOnly mode, filter to only the focused train's route
+    const displayRoutes = tripOnly && focusedVehicle
+        ? routeShapes.filter(r => r.gtfsRouteId === focusedVehicle.vehicle.trip.routeId)
+        : routeShapes;
+    const displayVehicles = tripOnly
+        ? vehicles.filter(v => focusTripId && v.vehicle.trip.tripId === focusTripId)
+        : vehicles;
+
     return (
         <div className="space-y-4">
-            {/* Focused train banner */}
-            {focusTripId && (
+            {/* Focused train banner — hidden in tripOnly mode (TripTracker already shows this) */}
+            {!tripOnly && focusTripId && (
                 <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex items-center gap-3">
                         <span className="relative flex h-3 w-3">
@@ -178,23 +189,26 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
                 </div>
             )}
 
-            <div className="flex flex-wrap gap-3 items-center justify-between bg-white dark:bg-white/5 dark:backdrop-blur-md p-4 rounded-xl shadow-sm border border-gray-100 dark:border-white/10 transition-colors">
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium border border-blue-100 dark:border-blue-800 transition-colors">
-                        <span className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
-                        </span>
-                        {vehicles.length} Active Trains
+            {/* Stats bar — hidden in tripOnly mode */}
+            {!tripOnly && (
+                <div className="flex flex-wrap gap-3 items-center justify-between bg-white dark:bg-white/5 dark:backdrop-blur-md p-4 rounded-xl shadow-sm border border-gray-100 dark:border-white/10 transition-colors">
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium border border-blue-100 dark:border-blue-800 transition-colors">
+                            <span className="relative flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+                            </span>
+                            {vehicles.length} Active Trains
+                        </div>
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium bg-gray-50 dark:bg-white/10 px-3 py-1.5 rounded-full border border-gray-100 dark:border-white/5 transition-colors">
+                        Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : '...'}
                     </div>
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium bg-gray-50 dark:bg-white/10 px-3 py-1.5 rounded-full border border-gray-100 dark:border-white/5 transition-colors">
-                    Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : '...'}
-                </div>
-            </div>
+            )}
 
-            {/* Route legend */}
-            {routeShapes.length > 0 && (
+            {/* Route legend — hidden in tripOnly mode */}
+            {!tripOnly && routeShapes.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-1">
                     {routeShapes.map((route, idx) => (
                         <div
@@ -211,7 +225,7 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
                 </div>
             )}
 
-            <div className="h-[calc(100vh-250px)] min-h-[500px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-white/10 relative transition-colors">
+            <div className={`${tripOnly ? 'h-[400px]' : 'h-[calc(100vh-250px)] min-h-[500px]'} w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-white/10 relative transition-colors`}>
                 <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }}>
                     <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -220,10 +234,10 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
                             : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
                         }
                     />
-                    <MapFocuser vehicles={vehicles} focusTripId={focusTripId} />
+                    <MapFocuser vehicles={displayVehicles} focusTripId={focusTripId} />
 
                     {/* Render track lines */}
-                    {routeShapes.map((route, idx) => (
+                    {displayRoutes.map((route, idx) => (
                         <Polyline
                             key={`track-${idx}`}
                             positions={route.coordinates}
@@ -237,7 +251,7 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
                     ))}
 
                     {/* Render station dots on tracks */}
-                    {routeShapes.map((route, routeIdx) =>
+                    {displayRoutes.map((route, routeIdx) =>
                         route.stations.map((station, stationIdx) => (
                             <CircleMarker
                                 key={`station-${routeIdx}-${stationIdx}`}
@@ -258,7 +272,7 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
                     )}
 
                     {/* Render train markers */}
-                    {vehicles.map((v) => {
+                    {displayVehicles.map((v) => {
                         const isFocused = focusTripId && v.vehicle.trip.tripId === focusTripId;
                         const isDimmed = focusTripId && !isFocused;
 
