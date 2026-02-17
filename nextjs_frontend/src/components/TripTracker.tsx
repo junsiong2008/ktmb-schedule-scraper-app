@@ -269,7 +269,7 @@ export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
                             const isTrainRef = isTrainAtThisStation || showFloatingTrain;
 
                             return (
-                                <div key={idx} className="relative" ref={isTrainRef ? trainMarkerRef : undefined}>
+                                <div key={idx} className={`relative ${showFloatingTrain ? 'pb-8' : ''}`} ref={isTrainRef ? trainMarkerRef : undefined}>
                                     {/* Connection line to next station */}
                                     {!isLast && (
                                         <div
@@ -340,7 +340,7 @@ export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
                                         <div
                                             className="absolute left-0 -translate-x-[20px] z-20 transition-all duration-1000 ease-in-out"
                                             style={{
-                                                top: `${24 + trainPosition.fraction * 24}px`,
+                                                top: `${24 + trainPosition.fraction * 40}px`,
                                             }}
                                         >
                                             <div className="relative flex items-center">
