@@ -362,13 +362,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                                                       curve: Curves.easeInOut,
                                                     );
                                               }
-                                            } else {
-                                              _showTrainInfo(
-                                                context,
-                                                v.tripId,
-                                                isDark,
-                                              );
                                             }
+                                            _showTrainInfo(
+                                              context,
+                                              v.tripId,
+                                              isDark,
+                                            );
                                           },
                                           child: _TrainMarker(
                                             isFocused: isFocused,
@@ -468,9 +467,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
                 );
-              } else {
-                _showTrainInfo(context, vehicle.tripId, isDark);
               }
+              _showTrainInfo(context, vehicle.tripId, isDark);
             },
             borderRadius: BorderRadius.circular(16),
             child: Padding(
@@ -552,39 +550,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                         ),
                       ),
                     ],
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.grey[800]!.withValues(alpha: 0.5)
-                          : Colors.grey[50],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          size: 16,
-                          color: isDark ? Colors.grey[400] : Colors.grey[600],
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            vehicle.statusText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark
-                                  ? Colors.grey[300]
-                                  : Colors.grey[700],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),
