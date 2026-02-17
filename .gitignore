@@ -19,3 +19,4 @@ yarn-error.log*
 .agent/*
 
 nextstop_flutter
+gtfs_data

@@ -1,9 +1,15 @@
 const GtfsRealtimeBindings = require('gtfs-realtime-bindings');
+const db = require('../config/db');
 
 // Simple in-memory cache
 let cachedData = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 30 * 1000; // 30 seconds
+
+// Cache for route shapes (rarely changes)
+let cachedShapes = null;
+let shapesCacheTime = 0;
+const SHAPES_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 const getVehiclePositions = async (req, res) => {
     try {
@@ -117,6 +123,61 @@ const getVehiclePositions = async (req, res) => {
     }
 };
 
+const getRouteShapes = async (req, res) => {
+    try {
+        const now = Date.now();
+
+        // Serve from cache if valid
+        if (cachedShapes && (now - shapesCacheTime < SHAPES_CACHE_DURATION)) {
+            return res.json(cachedShapes);
+        }
+
+        const result = await db.query(`
+            SELECT shape_group, route_label, route_color, station_name, latitude, longitude, stop_sequence, shape_dist_traveled
+            FROM route_shapes
+            WHERE shape_group IS NOT NULL
+            ORDER BY shape_group ASC, stop_sequence ASC
+        `);
+
+        if (result.rows.length === 0) {
+            return res.json([]);
+        }
+
+        // Group by shape_group
+        const groupedRoutes = {};
+        for (const row of result.rows) {
+            const group = row.shape_group;
+            if (!groupedRoutes[group]) {
+                groupedRoutes[group] = {
+                    name: row.route_label || `Route ${group}`,
+                    color: row.route_color || '#888888',
+                    coordinates: [],
+                    stations: [],
+                };
+            }
+            groupedRoutes[group].coordinates.push([row.latitude, row.longitude]);
+            groupedRoutes[group].stations.push({
+                name: row.station_name,
+                lat: row.latitude,
+                lon: row.longitude,
+                distTraveled: row.shape_dist_traveled,
+            });
+        }
+
+        const routeData = Object.values(groupedRoutes);
+
+        cachedShapes = routeData;
+        shapesCacheTime = now;
+
+        res.json(routeData);
+    } catch (error) {
+        console.error('Error fetching route shapes:', error);
+        res.status(500).json({ error: 'Failed to fetch route shapes' });
+    }
+};
+
 module.exports = {
     getVehiclePositions,
+    getRouteShapes,
 };
+

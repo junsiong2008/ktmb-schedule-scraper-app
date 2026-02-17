@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS stations (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL,
     code VARCHAR(50), -- Optional station code
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -53,3 +55,18 @@ CREATE INDEX IF NOT EXISTS idx_stop_times_station_id ON stop_times(station_id);
 CREATE INDEX IF NOT EXISTS idx_stop_times_trip_id ON stop_times(trip_id);
 CREATE INDEX IF NOT EXISTS idx_trips_schedule_id ON trips(schedule_id);
 CREATE INDEX IF NOT EXISTS idx_schedules_route_id ON schedules(route_id);
+
+-- 6. Route Shapes (Pre-computed polyline data for map display)
+CREATE TABLE IF NOT EXISTS route_shapes (
+    id SERIAL PRIMARY KEY,
+    route_id INTEGER REFERENCES routes(id) ON DELETE CASCADE,
+    station_id INTEGER REFERENCES stations(id),
+    station_name VARCHAR(255),
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    stop_sequence INTEGER NOT NULL,
+    shape_dist_traveled DOUBLE PRECISION
+);
+
+CREATE INDEX IF NOT EXISTS idx_route_shapes_route_id ON route_shapes(route_id);
+

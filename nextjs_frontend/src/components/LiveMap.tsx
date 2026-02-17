@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useTheme } from 'next-themes';
@@ -43,6 +43,18 @@ interface VehiclePosition {
     };
 }
 
+interface RouteShape {
+    name: string;
+    color: string;
+    coordinates: [number, number][];
+    stations: {
+        name: string;
+        lat: number;
+        lon: number;
+        distTraveled: number;
+    }[];
+}
+
 interface LiveMapProps {
     focusTripId?: string | null;
     onClearFocus?: () => void;
@@ -77,6 +89,7 @@ function MapFocuser({ vehicles, focusTripId }: { vehicles: VehiclePosition[]; fo
 
 export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapProps) {
     const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
+    const [routeShapes, setRouteShapes] = useState<RouteShape[]>([]);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
@@ -95,9 +108,22 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
         }
     };
 
+    const fetchRouteShapes = async () => {
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+            const res = await fetch(`${apiUrl}/gtfs/route-shapes`);
+            if (!res.ok) throw new Error('Failed to fetch route shapes');
+            const data = await res.json();
+            setRouteShapes(data || []);
+        } catch (err) {
+            console.error('Failed to fetch route shapes:', err);
+        }
+    };
+
     useEffect(() => {
         fetchVehicles();
-        const interval = setInterval(fetchVehicles, 30000); // Update every 30 seconds
+        fetchRouteShapes(); // Fetch once on mount (static data)
+        const interval = setInterval(fetchVehicles, 30000); // Update vehicles every 30 seconds
         return () => clearInterval(interval);
     }, []);
 
@@ -167,6 +193,24 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
                 </div>
             </div>
 
+            {/* Route legend */}
+            {routeShapes.length > 0 && (
+                <div className="flex flex-wrap gap-2 px-1">
+                    {routeShapes.map((route, idx) => (
+                        <div
+                            key={idx}
+                            className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400"
+                        >
+                            <span
+                                className="inline-block w-4 h-1 rounded-full"
+                                style={{ backgroundColor: route.color }}
+                            ></span>
+                            {route.name}
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <div className="h-[calc(100vh-250px)] min-h-[500px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-white/10 relative transition-colors">
                 <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }}>
                     <TileLayer
@@ -177,6 +221,43 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
                         }
                     />
                     <MapFocuser vehicles={vehicles} focusTripId={focusTripId} />
+
+                    {/* Render track lines */}
+                    {routeShapes.map((route, idx) => (
+                        <Polyline
+                            key={`track-${idx}`}
+                            positions={route.coordinates}
+                            pathOptions={{
+                                color: route.color,
+                                weight: 3,
+                                opacity: 0.7,
+                                dashArray: undefined,
+                            }}
+                        />
+                    ))}
+
+                    {/* Render station dots on tracks */}
+                    {routeShapes.map((route, routeIdx) =>
+                        route.stations.map((station, stationIdx) => (
+                            <CircleMarker
+                                key={`station-${routeIdx}-${stationIdx}`}
+                                center={[station.lat, station.lon]}
+                                radius={3}
+                                pathOptions={{
+                                    color: route.color,
+                                    fillColor: isDark ? '#1e293b' : '#ffffff',
+                                    fillOpacity: 1,
+                                    weight: 2,
+                                }}
+                            >
+                                <Tooltip direction="top" offset={[0, -5]}>
+                                    <span className="text-xs font-medium">{station.name}</span>
+                                </Tooltip>
+                            </CircleMarker>
+                        ))
+                    )}
+
+                    {/* Render train markers */}
                     {vehicles.map((v) => {
                         const isFocused = focusTripId && v.vehicle.trip.tripId === focusTripId;
                         const isDimmed = focusTripId && !isFocused;
@@ -230,3 +311,4 @@ export default function LiveMap({ focusTripId = null, onClearFocus }: LiveMapPro
         </div>
     );
 }
+
