@@ -94,6 +94,8 @@ export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
     const [stale, setStale] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const consecutiveMisses = useRef(0);
+    const vehicleRef = useRef<VehiclePosition | null>(null);
+    const routesLoadedRef = useRef(false);
     const trainMarkerRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const hasAutoScrolled = useRef(false);
@@ -104,19 +106,25 @@ export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
         try {
             const [vehicleData, routeData] = await Promise.all([
                 getVehiclePositions(),
-                routes.length > 0 ? Promise.resolve(null) : getRouteShapes(),
+                routesLoadedRef.current ? Promise.resolve(null) : getRouteShapes(),
             ]);
+
+            const ts = typeof vehicleData.timestamp === 'number'
+                ? vehicleData.timestamp
+                : parseInt(vehicleData.timestamp || '0');
 
             // Find the specific vehicle
             const found = vehicleData.vehicles.find(v => v.vehicle.trip.tripId === tripId);
             if (found) {
                 setVehicle(found);
+                vehicleRef.current = found;
                 setError(null);
                 setStale(false);
                 consecutiveMisses.current = 0;
+                setLastUpdate(new Date(ts * 1000));
             } else {
                 consecutiveMisses.current++;
-                if (vehicle) {
+                if (vehicleRef.current) {
                     // We have cached data — keep it and mark as stale
                     setStale(true);
                     if (consecutiveMisses.current >= MISS_THRESHOLD) {
@@ -128,18 +136,20 @@ export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
                 }
             }
 
-            if (routeData) setRoutes(routeData);
-            setLastUpdate(new Date());
+            if (routeData) {
+                setRoutes(routeData);
+                routesLoadedRef.current = true;
+            }
         } catch (e) {
             // On network error, keep cached data (like LiveMap does)
             console.error('Failed to fetch tracking data:', e);
-            if (!vehicle) {
+            if (!vehicleRef.current) {
                 setError('Failed to fetch tracking data.');
             }
         } finally {
             setLoading(false);
         }
-    }, [tripId, routes.length, vehicle]);
+    }, [tripId]);
 
     // Initial fetch and auto refresh
     useEffect(() => {
