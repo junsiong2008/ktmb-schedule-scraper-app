@@ -61,6 +61,8 @@ interface LiveMapProps {
     onClearFocus?: () => void;
     /** When true, only show the route and train for the focused trip (no other trains/routes/chrome) */
     tripOnly?: boolean;
+    /** Called when a train marker is clicked on the map */
+    onSelectTrip?: (tripId: string) => void;
 }
 
 // Sub-component to handle map flying (needs useMap hook inside MapContainer)
@@ -90,7 +92,7 @@ function MapFocuser({ vehicles, focusTripId }: { vehicles: VehiclePosition[]; fo
     return null;
 }
 
-export default function LiveMap({ focusTripId = null, onClearFocus, tripOnly = false }: LiveMapProps) {
+export default function LiveMap({ focusTripId = null, onClearFocus, tripOnly = false, onSelectTrip }: LiveMapProps) {
     const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
     const [routeShapes, setRouteShapes] = useState<RouteShape[]>([]);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -225,7 +227,7 @@ export default function LiveMap({ focusTripId = null, onClearFocus, tripOnly = f
                 </div>
             )}
 
-            <div className={`${tripOnly ? 'h-[400px]' : 'h-[calc(100vh-250px)] min-h-[500px]'} w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-white/10 relative transition-colors`}>
+            <div className={`${tripOnly ? 'h-[400px]' : 'h-[calc(100vh-250px)] min-h-[500px]'} w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-white/10 relative z-0 transition-colors`}>
                 <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }}>
                     <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -289,6 +291,9 @@ export default function LiveMap({ focusTripId = null, onClearFocus, tripOnly = f
                                     iconAnchor: isFocused ? [14, 14] : [10, 10],
                                 })}
                                 zIndexOffset={isFocused ? 1000 : 0}
+                                eventHandlers={onSelectTrip ? {
+                                    click: () => onSelectTrip(v.vehicle.trip.tripId),
+                                } : undefined}
                             >
                                 <Popup>
                                     <div className="p-2">

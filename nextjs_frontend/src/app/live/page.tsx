@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/Header';
@@ -23,10 +23,14 @@ function LivePageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const focusTripId = searchParams.get('trip');
+    const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
 
     const handleClearFocus = () => {
         router.replace('/live');
     };
+
+    // The trip shown in the tracker: URL param takes precedence, then map selection
+    const activeTripId = focusTripId || selectedTripId;
 
     return (
         <main className="min-h-screen bg-gray-50 dark:bg-slate-950 dark:bg-gradient-to-b dark:from-slate-950 dark:to-slate-900 font-[family-name:var(--font-geist-sans)] transition-colors">
@@ -39,7 +43,7 @@ function LivePageContent() {
                         <span className="bg-yellow-400 text-blue-900 text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Beta</span>
                     </h2>
                     <p className="text-gray-600 dark:text-gray-400 mt-1">
-                        {focusTripId ? 'Real-time position of your train.' : 'Real-time positions of KTMB trains across the network.'}
+                        {activeTripId ? 'Real-time position of your train.' : 'Real-time positions of KTMB trains across the network.'}
                     </p>
                 </div>
 
@@ -52,7 +56,22 @@ function LivePageContent() {
                     </div>
                 )}
 
-                <LiveMap focusTripId={focusTripId} onClearFocus={handleClearFocus} tripOnly={!!focusTripId} />
+                <LiveMap
+                    focusTripId={focusTripId}
+                    onClearFocus={handleClearFocus}
+                    tripOnly={!!focusTripId}
+                    onSelectTrip={!focusTripId ? setSelectedTripId : undefined}
+                />
+
+                {/* Route progress for a train selected from the map (not from URL) */}
+                {!focusTripId && selectedTripId && (
+                    <div className="mt-6">
+                        <TripTracker
+                            tripId={selectedTripId}
+                            onBack={() => setSelectedTripId(null)}
+                        />
+                    </div>
+                )}
             </div>
         </main>
     );
