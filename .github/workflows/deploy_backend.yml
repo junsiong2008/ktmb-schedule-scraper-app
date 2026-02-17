@@ -1,0 +1,56 @@
+name: Deploy Backend API to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ktmb_api/**'
+      - '.github/workflows/deploy_backend.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ktm-schedule-app
+  SERVICE_NAME: ktmb-api
+  REGION: us-central1
+  IMAGE_NAME: gcr.io/ktm-schedule-app/ktmb_api
+  # VPC Connector settings
+  VPC_CONNECTOR: ktmb-ingestion-connector
+  VPC_EGRESS: all-traffic
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+          service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and Push Container
+        working-directory: ktmb_api
+        run: |
+          gcloud builds submit --tag ${{ env.IMAGE_NAME }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.IMAGE_NAME }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --vpc-connector=${{ env.VPC_CONNECTOR }} \
+            --vpc-egress=${{ env.VPC_EGRESS }} \
+            --project=${{ env.PROJECT_ID }}
