@@ -131,6 +131,14 @@ def extract_metadata(df, filename=""):
         date_match = re.search(r"(\d{1,2} [a-zA-Z]+ \d{4})", filename)
         if date_match:
              valid_from = parse_malay_date(date_match.group(1))
+    
+    # Fallback for compact date format in filename (e.g. "4Feb2026" without spaces)
+    if not valid_from:
+        compact_match = re.search(r"(\d{1,2})([a-zA-Z]+)(\d{4})", filename)
+        if compact_match:
+            day, month_str, year = compact_match.groups()
+            spaced_date = f"{day} {month_str} {year}"
+            valid_from = parse_malay_date(spaced_date)
 
     # 4. Determine Day Type
     if "HARI BEKERJA" in meta_row:

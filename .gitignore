@@ -17,3 +17,5 @@ yarn-error.log*
 
 # Agent
 .agent/*
+
+nextstop_flutter
