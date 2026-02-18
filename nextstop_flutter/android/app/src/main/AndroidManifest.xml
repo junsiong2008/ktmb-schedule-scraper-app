@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="nextstop_flutter"
+        android:label="NextStop: KTM Timetable Alternative"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

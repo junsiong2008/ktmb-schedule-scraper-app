@@ -1,4 +1,4 @@
-package com.example.nextstop_flutter
+package xyz.jsdevexperiment.nextstop
 
 import io.flutter.embedding.android.FlutterActivity
 
