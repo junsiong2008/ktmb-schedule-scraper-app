@@ -90,6 +90,9 @@ class ScheduleProvider extends ChangeNotifier {
     try {
       _routeGroups = await _api.getRoutes();
       _updateAvailableRoutes();
+      if (_selectedRouteId.isNotEmpty) {
+        _fetchStations();
+      }
       notifyListeners();
     } catch (e) {
       debugPrint('Failed to fetch routes: $e');
