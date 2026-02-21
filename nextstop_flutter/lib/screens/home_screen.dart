@@ -66,7 +66,12 @@ class _HomeScreenState extends State<HomeScreen>
 
           // Content
           SliverPadding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              16 + MediaQuery.of(context).padding.bottom,
+            ),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // Search card
@@ -644,7 +649,7 @@ class _HomeScreenState extends State<HomeScreen>
               initialDate: provider.date.isNotEmpty
                   ? DateTime.parse(provider.date)
                   : DateTime.now(),
-              firstDate: DateTime.now().subtract(const Duration(days: 30)),
+              firstDate: DateTime.now(),
               lastDate: DateTime.now().add(const Duration(days: 365)),
               builder: (context, child) {
                 return Theme(
