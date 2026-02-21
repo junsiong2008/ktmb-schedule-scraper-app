@@ -1,0 +1,21 @@
+[Unit]
+Description=KTMB ML Data Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Change this to your Ubuntu username
+User=ubuntu-username
+# Change this to the absolute path of ml_data_collection/ on your VM
+WorkingDirectory=/home/ubuntu-username/ml_data_collection
+ExecStart=/usr/bin/node collector.js
+Restart=always
+# Wait 10s before restarting on crash (avoids tight crash loops)
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

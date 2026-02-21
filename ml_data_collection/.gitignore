@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Runtime data
+*.pid
+
+# Data files (collected ML data)
+*.csv
+*.json
+data/
+
+# Build output
+dist/
+
+ktmb-collector.service

@@ -19,3 +19,4 @@ yarn-error.log*
 .agent/*
 
 gtfs_data
+pdf_extraction_script
