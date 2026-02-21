@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/schedule_provider.dart';
+import '../providers/theme_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/service_type_tabs.dart';
 import '../widgets/station_picker.dart';
@@ -192,6 +193,23 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Theme toggle button
+              GestureDetector(
+                onTap: () => context.read<ThemeProvider>().toggle(),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    size: 16,
+                    color: Colors.white,
                   ),
                 ),
               ),
