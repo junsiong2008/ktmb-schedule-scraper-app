@@ -166,7 +166,12 @@ export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
         return findTrainPosition(pos.latitude, pos.longitude, routes);
     }, [vehicle, routes]);
 
-    // Auto-scroll to train position on first load
+    // Reset auto-scroll flag when the trip changes
+    useEffect(() => {
+        hasAutoScrolled.current = false;
+    }, [tripId]);
+
+    // Auto-scroll to train position once per trip load
     useEffect(() => {
         if (trainMarkerRef.current && scrollContainerRef.current && !hasAutoScrolled.current) {
             hasAutoScrolled.current = true;
@@ -174,7 +179,7 @@ export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
                 trainMarkerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
             }, 100);
         }
-    }, [trainPosition]);
+    }, [trainPosition, tripId]);
 
     const matchedRoute = trainPosition?.route;
     const speed = vehicle?.vehicle.position?.speed;
