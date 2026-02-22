@@ -54,9 +54,9 @@ function LivePageContent() {
 
     return (
         <main className="min-h-screen bg-gray-50 dark:bg-slate-950 dark:bg-gradient-to-b dark:from-slate-950 dark:to-slate-900 font-[family-name:var(--font-geist-sans)] transition-colors">
-            <Header maxWidthClass={!focusTripId && showTrainList ? 'max-w-[1600px] w-[95%]' : 'max-w-6xl w-full'} />
+            <Header maxWidthClass={!focusTripId && (showTrainList || selectedTripId) ? 'max-w-[1600px] w-[95%]' : 'max-w-6xl w-full'} />
 
-            <div className={`mx-auto p-4 md:p-8 transition-all duration-200 ${!focusTripId && showTrainList ? 'max-w-[1600px] w-[95%]' : 'max-w-6xl w-full'}`}>
+            <div className={`mx-auto p-4 md:p-8 transition-all duration-200 ${!focusTripId && (showTrainList || selectedTripId) ? 'max-w-[1600px] w-[95%]' : 'max-w-6xl w-full'}`}>
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         Live Train Tracking
@@ -138,7 +138,7 @@ function LivePageContent() {
                                                             </div>
                                                         </div>
                                                         <div className={`flex-shrink-0 flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${moving ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400'}`}>
-                                                            <Zap size={9} />{speed.toFixed(0)}
+                                                            <Zap size={9} />{speed.toFixed(0)} km/h
                                                         </div>
                                                     </button>
                                                 );
@@ -165,7 +165,7 @@ function LivePageContent() {
                     </div>
 
                     {/* Right panel: TripTracker (desktop only, when a train is selected) */}
-                    {!focusTripId && showTrainList && selectedTripId && (
+                    {!focusTripId && selectedTripId && (
                         <aside className="hidden lg:flex flex-col w-[320px] flex-shrink-0 sticky top-4 max-h-[calc(100vh-6rem)] animate-fade-in">
                             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-white/10 shadow-lg flex-1 min-h-0 overflow-y-auto scrollbar-hide">
                                 <TripTracker
