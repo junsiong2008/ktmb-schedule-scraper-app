@@ -56,7 +56,7 @@ function LivePageContent() {
         <main className="min-h-screen bg-gray-50 dark:bg-slate-950 dark:bg-gradient-to-b dark:from-slate-950 dark:to-slate-900 font-[family-name:var(--font-geist-sans)] transition-colors">
             <Header />
 
-            <div className={`mx-auto p-4 md:p-8 transition-all duration-200 ${!focusTripId && showTrainList ? 'max-w-[1200px]' : 'max-w-4xl'}`}>
+            <div className={`mx-auto p-4 md:p-8 transition-all duration-200 ${!focusTripId && showTrainList ? 'max-w-[1600px] w-[95%]' : 'max-w-6xl w-full'}`}>
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         Live Train Tracking
