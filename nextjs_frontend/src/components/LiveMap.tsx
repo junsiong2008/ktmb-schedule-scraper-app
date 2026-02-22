@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, Tooltip
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useTheme } from 'next-themes';
-import { X } from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
 
 // Fix for default marker icon in Next.js / Webpack
 // @ts-ignore
@@ -96,6 +96,7 @@ export default function LiveMap({ focusTripId = null, onClearFocus, tripOnly = f
     const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
     const [routeShapes, setRouteShapes] = useState<RouteShape[]>([]);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [legendOpen, setLegendOpen] = useState(false);
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
 
@@ -211,19 +212,31 @@ export default function LiveMap({ focusTripId = null, onClearFocus, tripOnly = f
 
             {/* Route legend — hidden in tripOnly mode */}
             {!tripOnly && routeShapes.length > 0 && (
-                <div className="flex flex-wrap gap-2 px-1">
-                    {routeShapes.map((route, idx) => (
-                        <div
-                            key={idx}
-                            className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400"
-                        >
-                            <span
-                                className="inline-block w-4 h-1 rounded-full"
-                                style={{ backgroundColor: route.color }}
-                            ></span>
-                            {route.name}
-                        </div>
-                    ))}
+                <div className="space-y-2">
+                    {/* Toggle button — mobile only */}
+                    <button
+                        onClick={() => setLegendOpen(prev => !prev)}
+                        className="sm:hidden flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-white/5 px-3 py-1.5 rounded-full border border-gray-100 dark:border-white/10 shadow-sm transition-colors"
+                    >
+                        Route Legend
+                        <ChevronDown size={12} className={`transition-transform duration-200 ${legendOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Legend items — collapsed on mobile, always visible on desktop */}
+                    <div className={`flex-wrap gap-2 px-1 ${legendOpen ? 'flex' : 'hidden'} sm:flex`}>
+                        {routeShapes.map((route, idx) => (
+                            <div
+                                key={idx}
+                                className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400"
+                            >
+                                <span
+                                    className="inline-block w-4 h-1 rounded-full"
+                                    style={{ backgroundColor: route.color }}
+                                ></span>
+                                {route.name}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
