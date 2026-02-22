@@ -167,7 +167,7 @@ function LivePageContent() {
                     {/* Right panel: TripTracker (desktop only, when a train is selected) */}
                     {!focusTripId && selectedTripId && (
                         <aside className="hidden lg:flex flex-col w-[320px] flex-shrink-0 sticky top-4 max-h-[calc(100vh-6rem)] animate-fade-in">
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-white/10 shadow-lg flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+                            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
                                 <TripTracker
                                     tripId={selectedTripId}
                                     onBack={() => setSelectedTripId(null)}
