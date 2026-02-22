@@ -63,6 +63,7 @@ function LivePageContent() {
                             onClearFocus={handleClearFocus}
                             tripOnly={!!focusTripId}
                             onSelectTrip={!focusTripId ? setSelectedTripId : undefined}
+                            onClearSelection={!focusTripId ? () => setSelectedTripId(null) : undefined}
                         />
                     </div>
 
