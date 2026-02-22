@@ -7,9 +7,10 @@ import ClockComponent from "@/components/Clock";
 interface HeaderProps {
     onLogoClick?: () => void;
     showLiveMap?: boolean;
+    maxWidthClass?: string;
 }
 
-export function Header({ onLogoClick, showLiveMap = false }: HeaderProps) {
+export function Header({ onLogoClick, showLiveMap = false, maxWidthClass = "max-w-4xl" }: HeaderProps) {
     const LogoContent = (
         <div className={`flex items-center gap-2 md:gap-3 cursor-pointer ${!onLogoClick ? 'hover:opacity-90 transition-opacity' : ''}`}>
             <div className="p-1.5 md:p-2 bg-white/10 rounded-lg backdrop-blur-sm">
@@ -20,8 +21,8 @@ export function Header({ onLogoClick, showLiveMap = false }: HeaderProps) {
     );
 
     return (
-        <header className="bg-blue-600 dark:bg-slate-900/90 dark:backdrop-blur-md text-white p-4 md:p-6 shadow-lg sticky top-0 z-50 transition-colors border-b border-blue-500/20 dark:border-slate-800">
-            <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <header className="bg-blue-600 dark:bg-slate-900/90 dark:backdrop-blur-md text-white py-4 md:py-6 shadow-lg sticky top-0 z-50 transition-colors border-b border-blue-500/20 dark:border-slate-800">
+            <div className={`${maxWidthClass} mx-auto px-4 md:px-8 flex items-center justify-between`}>
                 {onLogoClick ? (
                     <div onClick={onLogoClick}>{LogoContent}</div>
                 ) : (
