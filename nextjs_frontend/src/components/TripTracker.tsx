@@ -171,15 +171,17 @@ export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
         hasAutoScrolled.current = false;
     }, [tripId]);
 
-    // Auto-scroll to train position once per trip load
+    // Auto-scroll to train position once per trip load, ensuring we only scroll when the right data is loaded
     useEffect(() => {
-        if (trainMarkerRef.current && scrollContainerRef.current && !hasAutoScrolled.current) {
+        const isCurrentTripLoaded = vehicle?.vehicle.trip.tripId === tripId;
+
+        if (isCurrentTripLoaded && trainMarkerRef.current && scrollContainerRef.current && !hasAutoScrolled.current) {
             hasAutoScrolled.current = true;
             setTimeout(() => {
                 trainMarkerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
             }, 100);
         }
-    }, [trainPosition, tripId]);
+    }, [trainPosition, tripId, vehicle]);
 
     const matchedRoute = trainPosition?.route;
     const speed = vehicle?.vehicle.position?.speed;
