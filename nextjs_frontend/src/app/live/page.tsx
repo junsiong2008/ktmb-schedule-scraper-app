@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/Header';
@@ -38,6 +38,31 @@ function LivePageContent() {
     const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
     const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
     const [showTrainList, setShowTrainList] = useState(false);
+
+    // Prevent body scroll when mobile bottom sheet is open
+    useEffect(() => {
+        if (!selectedTripId || focusTripId) {
+            document.body.style.overflow = '';
+            return;
+        }
+
+        // Lock scroll only on mobile (< 1024px matching tailwind 'lg' breakpoint)
+        const checkScrollLock = () => {
+            if (window.innerWidth < 1024) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        };
+
+        checkScrollLock();
+        window.addEventListener('resize', checkScrollLock);
+
+        return () => {
+            window.removeEventListener('resize', checkScrollLock);
+            document.body.style.overflow = '';
+        };
+    }, [selectedTripId, focusTripId]);
 
     const handleClearFocus = () => {
         router.replace('/live');

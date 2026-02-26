@@ -20,3 +20,4 @@ yarn-error.log*
 
 gtfs_data
 pdf_extraction_script
+test_gtfs
