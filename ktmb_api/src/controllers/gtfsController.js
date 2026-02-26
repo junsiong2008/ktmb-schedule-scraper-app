@@ -158,13 +158,17 @@ const getRouteShapes = async (req, res) => {
                 };
             }
             groupedRoutes[group].coordinates.push([row.latitude, row.longitude]);
-            groupedRoutes[group].stations.push({
-                name: row.station_name,
-                lat: row.latitude,
-                lon: row.longitude,
-                distTraveled: row.shape_dist_traveled,
-                gtfsStopId: row.gtfs_stop_id,
-            });
+
+            // Only add to stations array if it's an actual station (has a name)
+            if (row.station_name) {
+                groupedRoutes[group].stations.push({
+                    name: row.station_name,
+                    lat: row.latitude,
+                    lon: row.longitude,
+                    distTraveled: row.shape_dist_traveled,
+                    gtfsStopId: row.gtfs_stop_id,
+                });
+            }
         }
 
         const routeData = Object.values(groupedRoutes);
