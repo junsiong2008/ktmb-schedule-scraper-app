@@ -69,6 +69,6 @@ jobs:
             --allow-unauthenticated \
             --vpc-connector=${{ env.VPC_CONNECTOR }} \
             --vpc-egress=${{ env.VPC_EGRESS }} \
-            --set-env-vars="DB_HOST=${{ secrets.DB_HOST }},DB_USER=${{ secrets.DB_USER }},DB_PASSWORD=${{ secrets.DB_PASSWORD }},DB_NAME=${{ secrets.DB_NAME }},DB_PORT=5432,PORT=8080" \
+            --set-env-vars="DB_HOST=${{ secrets.DB_HOST }},DB_USER=${{ secrets.DB_USER }},DB_PASSWORD=${{ secrets.DB_PASSWORD }},DB_NAME=${{ secrets.DB_NAME }},DB_PORT=5432" \
             --project=${{ env.PROJECT_ID }}
 
