@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/schedule_provider.dart';
 import '../providers/theme_provider.dart';
 import '../theme/app_theme.dart';
@@ -142,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen>
                 'Next Stop',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
-                  fontSize: 20,
+                  fontSize: 16,
                   color: Colors.white,
                   letterSpacing: -0.5,
                 ),
@@ -217,6 +218,59 @@ class _HomeScreenState extends State<HomeScreen>
                     color: Colors.white,
                   ),
                 ),
+              ),
+              const SizedBox(width: 8),
+              // More menu
+              PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'privacy') {
+                    await launchUrl(
+                      Uri.parse('https://next-stop-f4cd4.web.app'),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                },
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.more_vert_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+                itemBuilder: (context) => [
+                  PopupMenuItem<String>(
+                    value: 'privacy',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.privacy_tip_outlined,
+                          size: 18,
+                          color: isDark
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade700,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Privacy Policy',
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.grey.shade200
+                                : Colors.grey.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
