@@ -226,6 +226,7 @@ class ScheduleProvider extends ChangeNotifier {
 
   Future<void> search() async {
     if (_originId.isEmpty || _destinationId.isEmpty || _date.isEmpty) return;
+    if (_originId == _destinationId) return;
 
     _loading = true;
     _hasSearched = true;

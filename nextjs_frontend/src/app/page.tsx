@@ -245,6 +245,7 @@ export default function Home() {
 
   const handleSearch = async () => {
     if (!originId || !destinationId || !date) return;
+    if (originId === destinationId) return;
 
     updateRecentSearches(originId, destinationId, serviceType);
     await executeSearch(originId, destinationId, date, serviceType, time);
@@ -480,6 +481,16 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Same-station warning */}
+            {originId && destinationId && originId === destinationId && (
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 text-sm font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                Origin and destination cannot be the same
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Date Picker */}
               <div className="min-w-0">
@@ -516,7 +527,7 @@ export default function Home() {
               <div className="flex items-end md:col-span-2">
                 <button
                   onClick={handleSearch}
-                  disabled={!originId || !destinationId || !date || loading}
+                  disabled={!originId || !destinationId || !date || originId === destinationId || loading}
                   className="w-full p-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-900 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   {loading ? (

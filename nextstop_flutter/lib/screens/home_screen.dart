@@ -419,6 +419,31 @@ class _HomeScreenState extends State<HomeScreen>
                 icon: Icons.place_rounded,
               ),
 
+              // Same-station warning
+              if (provider.originId.isNotEmpty &&
+                  provider.destinationId.isNotEmpty &&
+                  provider.originId == provider.destinationId) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: Colors.amber.shade700,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Origin and destination cannot be the same',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.amber.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
               const SizedBox(height: 16),
 
               // Date & time
@@ -436,10 +461,15 @@ class _HomeScreenState extends State<HomeScreen>
               // Search button
               Builder(
                 builder: (context) {
+                  final isSameStation =
+                      provider.originId.isNotEmpty &&
+                      provider.destinationId.isNotEmpty &&
+                      provider.originId == provider.destinationId;
                   final isEnabled =
                       provider.originId.isNotEmpty &&
                       provider.destinationId.isNotEmpty &&
                       provider.date.isNotEmpty &&
+                      !isSameStation &&
                       !provider.loading;
 
                   return Container(

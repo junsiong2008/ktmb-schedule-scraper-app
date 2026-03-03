@@ -246,6 +246,10 @@ const searchTrips = async (req, res) => {
         return res.status(400).json({ error: 'Missing "from", "to", or "date" parameter' });
     }
 
+    if (from === to) {
+        return res.status(400).json({ error: 'Origin and destination stations cannot be the same' });
+    }
+
     // Determine day type (Weekday/Weekend)
     // Determine day type (Weekday/Weekend)
     const dayName = getDayName(date);
