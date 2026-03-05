@@ -62,6 +62,7 @@ class TripSearchResult {
   final String routeShortName;
   final dynamic routeType;
   final String tripHeadsign;
+  final String? gtfsRouteId;
 
   TripSearchResult({
     required this.tripId,
@@ -71,6 +72,7 @@ class TripSearchResult {
     required this.routeShortName,
     required this.routeType,
     required this.tripHeadsign,
+    this.gtfsRouteId,
   });
 
   factory TripSearchResult.fromJson(Map<String, dynamic> json) {
@@ -82,6 +84,7 @@ class TripSearchResult {
       routeShortName: json['route_short_name'] as String,
       routeType: json['route_type'],
       tripHeadsign: json['trip_headsign'] as String,
+      gtfsRouteId: json['gtfs_route_id'] as String?,
     );
   }
 }
@@ -289,7 +292,7 @@ class RouteShape {
       shapeGroup: json['shapeGroup'] as int,
       name: json['name'] as String,
       color: json['color'] as String,
-      gtfsRouteId: json['gtfsRouteId'] as String,
+      gtfsRouteId: json['gtfsRouteId'] as String? ?? '',
       coordinates: (json['coordinates'] as List)
           .map((c) => (c as List).map((e) => (e as num).toDouble()).toList())
           .toList(),

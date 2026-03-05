@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head -5 /Users/tengjunsiong/Projects/ktmb0t/Stack/ktmb_timetable/ingestion_automation_function/parsed_timetable/*.csv)",
+      "Bash(node -e \":*)",
+      "Bash(python3 -c \":*)",
+      "Bash(curl -s \"https://ktmb-api-769756648802.us-central1.run.app/api/routes\")",
+      "Bash(python3 -m json.tool)"
+    ]
+  }
+}

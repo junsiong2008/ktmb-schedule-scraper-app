@@ -940,7 +940,10 @@ class _HomeScreenState extends State<HomeScreen>
                     ? () => Navigator.pushNamed(
                         context,
                         '/trip_tracker',
-                        arguments: liveTripId,
+                        arguments: {
+                          'tripId': liveTripId,
+                          'gtfsRouteId': trip.gtfsRouteId,
+                        },
                       )
                     : null,
               ),

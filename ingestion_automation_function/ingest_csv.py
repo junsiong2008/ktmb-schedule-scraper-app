@@ -10,6 +10,28 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+
+def get_gtfs_route_id(service_type, route_name):
+    """Derive the GTFS static route_id for a given DB route, used to link route_shapes."""
+    name = route_name.upper()
+    if service_type == 'Komuter':
+        if 'BATU CAVES' in name or 'PULAU SEBANG' in name:
+            return 'KC05_KB18'  # Seremban Line
+        if 'TANJUNG MALIM' in name or 'PELABUHAN KLANG' in name:
+            return 'KA15_KD19'  # Port Klang Line
+    elif service_type == 'ETS':
+        return 'ETS'
+    elif service_type == 'Intercity':
+        if 'TEBRAU' in name or 'WOODLANDS' in name:
+            return 'ST'
+        if 'RAKYAT' in name:
+            return 'ERT'
+        if 'SELATAN' in name:
+            return 'ES'
+        return 'SH'
+    return None
+
+
 # Malay Month Mapping
 # Malay Month Mapping
 MONTH_MAPPING = {
@@ -255,7 +277,11 @@ def ingest_csv(csv_path, dry_run=False):
             cursor.execute("SELECT id FROM routes WHERE name = %s AND service_type = %s", (metadata['route_name'], metadata['service_type']))
             route = cursor.fetchone()
             if not route:
-                cursor.execute("INSERT INTO routes (name, service_type) VALUES (%s, %s) RETURNING id", (metadata['route_name'], metadata['service_type']))
+                gtfs_rid = get_gtfs_route_id(metadata['service_type'], metadata['route_name'])
+                cursor.execute(
+                    "INSERT INTO routes (name, service_type, gtfs_route_id) VALUES (%s, %s, %s) RETURNING id",
+                    (metadata['route_name'], metadata['service_type'], gtfs_rid)
+                )
                 route_id = cursor.fetchone()[0]
             else:
                 route_id = route[0]

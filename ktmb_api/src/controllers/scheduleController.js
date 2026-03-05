@@ -273,13 +273,14 @@ const searchTrips = async (req, res) => {
     let query = `
         SELECT
             t.train_number as trip_id,
+            r.gtfs_route_id,
             st_a.departure_time as departure_time,
             st_b.arrival_time as arrival_time,
             r.name as route_long_name,
             r.name as route_short_name,
             r.service_type as route_type,
             (
-                SELECT s_last.name 
+                SELECT s_last.name
                 FROM stop_times st_last
                 JOIN stations s_last ON st_last.station_id = s_last.id
                 WHERE st_last.trip_id = t.id
