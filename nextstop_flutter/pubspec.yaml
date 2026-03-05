@@ -1,8 +1,8 @@
 name: nextstop_flutter
 description: "NextStop - KTMB Train Schedule Mobile App"
-publish_to: 'none'
+publish_to: "none"
 
-version: 1.0.3+4
+version: 1.0.4+5
 
 environment:
   sdk: ^3.8.1
