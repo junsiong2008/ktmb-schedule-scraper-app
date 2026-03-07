@@ -636,7 +636,7 @@ export default function Home() {
                       ? 'border-emerald-200 dark:border-emerald-800/50 hover:shadow-lg hover:shadow-emerald-100/50 dark:hover:shadow-emerald-900/20 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700'
                       : 'border-gray-100 dark:border-white/10 hover:shadow-md'
                       }`}
-                    onClick={isLive ? () => router.push(`/live?trip=${liveTripId}`) : undefined}
+                    onClick={isLive ? () => router.push(`/live?trip=${liveTripId}${trip.gtfs_route_id ? `&route=${trip.gtfs_route_id}` : ''}`) : undefined}
                   >
                     {cardContent}
                   </div>

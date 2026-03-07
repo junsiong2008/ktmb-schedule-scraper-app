@@ -6,6 +6,7 @@ import { MapPin, Train, Navigation, ArrowLeft, RefreshCw } from 'lucide-react';
 
 interface TripTrackerProps {
     tripId: string;
+    gtfsRouteId?: string;
     onBack: () => void;
 }
 
@@ -86,7 +87,7 @@ function findTrainPosition(
     return null;
 }
 
-export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
+export default function TripTracker({ tripId, gtfsRouteId, onBack }: TripTrackerProps) {
     const [vehicle, setVehicle] = useState<VehiclePosition | null>(null);
     const [routes, setRoutes] = useState<RouteShape[]>([]);
     const [loading, setLoading] = useState(true);
@@ -163,8 +164,13 @@ export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
         if (!vehicle || routes.length === 0) return null;
         const pos = vehicle.vehicle.position;
         if (!pos?.latitude || !pos?.longitude) return null;
-        return findTrainPosition(pos.latitude, pos.longitude, routes);
-    }, [vehicle, routes]);
+        const candidateRoutes = gtfsRouteId
+            ? (routes.filter(r => r.gtfsRouteId === gtfsRouteId).length > 0
+                ? routes.filter(r => r.gtfsRouteId === gtfsRouteId)
+                : routes)
+            : routes;
+        return findTrainPosition(pos.latitude, pos.longitude, candidateRoutes);
+    }, [vehicle, routes, gtfsRouteId]);
 
     // Reset auto-scroll flag when the trip changes
     useEffect(() => {

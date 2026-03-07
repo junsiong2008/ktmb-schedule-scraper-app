@@ -94,6 +94,7 @@ export interface TripSearchResult {
     route_short_name: string;
     route_type: number;
     trip_headsign: string;
+    gtfs_route_id?: string;
 }
 
 export interface TripSearchResponse {

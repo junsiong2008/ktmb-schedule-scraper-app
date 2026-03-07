@@ -34,6 +34,7 @@ function LivePageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const focusTripId = searchParams.get('trip');
+    const focusGtfsRouteId = searchParams.get('route');
 
     const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
     const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
@@ -96,6 +97,7 @@ function LivePageContent() {
                     <div className="mb-6">
                         <TripTracker
                             tripId={focusTripId}
+                            gtfsRouteId={focusGtfsRouteId ?? undefined}
                             onBack={() => router.back()}
                         />
                     </div>
