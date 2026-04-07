@@ -65,7 +65,13 @@ CREATE TABLE IF NOT EXISTS route_shapes (
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
     stop_sequence INTEGER NOT NULL,
-    shape_dist_traveled DOUBLE PRECISION
+    shape_dist_traveled DOUBLE PRECISION,
+    -- Set by ingest_gtfs_stations.py (deduplicate_shapes)
+    shape_group INTEGER,       -- Groups all points belonging to the same route line
+    route_label VARCHAR(255),  -- Human-readable route name from GTFS
+    route_color VARCHAR(20),   -- Hex colour for map display (e.g. '#3C5A9F')
+    gtfs_route_id VARCHAR(50), -- GTFS route_id (e.g. 'KC05_KB18', 'ETS')
+    gtfs_stop_id VARCHAR(50)   -- GTFS stop_id for station rows; NULL for pure shape points
 );
 
 CREATE INDEX IF NOT EXISTS idx_route_shapes_route_id ON route_shapes(route_id);

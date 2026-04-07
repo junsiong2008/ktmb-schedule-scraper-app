@@ -2,7 +2,7 @@
 -- Run this on your PostgreSQL database (with TimescaleDB already installed).
 --
 -- Step 1 (prerequisite): TimescaleDB extension must be installed on the server.
---   sudo apt install timescaledb-2-postgresql-16
+--   sudo apt install timescaledb-2-postgresql-15
 --   sudo timescaledb-tune --quiet --yes
 --   sudo systemctl restart postgresql
 --
@@ -62,26 +62,3 @@ SELECT add_retention_policy(
     if_not_exists => TRUE
 );
 
--- ─── Actual arrivals view ──────────────────────────────────────────────────────
--- Materializes the first moment a train was snapped to each station per trip.
--- This is the key derived table for computing delay_seconds (actual - scheduled).
--- Refresh this daily: SELECT refresh_continuous_aggregate('actual_arrivals', NULL, NULL);
-CREATE MATERIALIZED VIEW IF NOT EXISTS actual_arrivals AS
-SELECT
-    trip_id,
-    route_label,
-    at_station_name,
-    at_station_idx,
-    MIN(recorded_at)                                         AS first_seen_at_station,
-    (MIN(recorded_at) AT TIME ZONE 'Asia/Kuala_Lumpur')::date AS service_date,
-    AVG(speed_kmh) FILTER (WHERE speed_kmh IS NOT NULL)     AS avg_speed_at_station
-FROM vehicle_positions_log
-WHERE at_station_name IS NOT NULL
-  AND trip_id IS NOT NULL
-GROUP BY trip_id, route_label, at_station_name, at_station_idx;
-
-CREATE INDEX IF NOT EXISTS idx_aa_trip_id
-    ON actual_arrivals (trip_id, service_date);
-
-CREATE INDEX IF NOT EXISTS idx_aa_station
-    ON actual_arrivals (at_station_name, service_date);

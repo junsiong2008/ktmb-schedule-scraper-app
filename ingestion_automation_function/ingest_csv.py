@@ -131,6 +131,14 @@ def extract_metadata(df, filename=""):
                 direction_hint = "Southbound"
                 break
         
+        # Also check filename for direction hints
+        if not direction_hint:
+            fn_upper = filename.upper()
+            if "NORTHBOUND" in fn_upper:
+                direction_hint = "Northbound"
+            elif "SOUTHBOUND" in fn_upper:
+                direction_hint = "Southbound"
+
         if direction_hint:
              # ETS is usually Gemas - Padang Besar
              if direction_hint == "Northbound":
