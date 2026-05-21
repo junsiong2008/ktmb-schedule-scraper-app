@@ -147,13 +147,20 @@ def extract_metadata(df, filename=""):
     if mulai_match:
         date_str = mulai_match.group(1).strip()
         valid_from = parse_malay_date(date_str)
-    
+
+    # Fallback: Malay date pattern anywhere in meta_row (e.g. "HARI BEKERJA 27 APRIL 2026")
+    MALAY_MONTHS = "|".join(MONTH_MAPPING.keys())
+    if not valid_from:
+        inline_match = re.search(rf"(\d{{1,2}}) ({MALAY_MONTHS}) (\d{{4}})", meta_row)
+        if inline_match:
+            valid_from = parse_malay_date(f"{inline_match.group(1)} {inline_match.group(2)} {inline_match.group(3)}")
+
     # Fallback to filename regex (e.g. "12 Dis 2025" or "1 Jan 2026")
     if not valid_from:
         date_match = re.search(r"(\d{1,2} [a-zA-Z]+ \d{4})", filename)
         if date_match:
              valid_from = parse_malay_date(date_match.group(1))
-    
+
     # Fallback for compact date format in filename (e.g. "4Feb2026" without spaces)
     if not valid_from:
         compact_match = re.search(r"(\d{1,2})([a-zA-Z]+)(\d{4})", filename)
@@ -161,6 +168,16 @@ def extract_metadata(df, filename=""):
             day, month_str, year = compact_match.groups()
             spaced_date = f"{day} {month_str} {year}"
             valid_from = parse_malay_date(spaced_date)
+
+    # Fallback for DDMMYYYY compact numeric format in filename (e.g. "27042026")
+    if not valid_from:
+        ddmmyyyy_match = re.search(r"(\d{2})(\d{2})(\d{4})", filename)
+        if ddmmyyyy_match:
+            day, month, year = ddmmyyyy_match.groups()
+            try:
+                valid_from = datetime(int(year), int(month), int(day)).date()
+            except ValueError:
+                pass
 
     # 4. Determine Day Type
     if "HARI BEKERJA" in meta_row:
@@ -337,24 +354,31 @@ def ingest_csv(csv_path, dry_run=False):
         # 4. Process Stop Times
         stop_times_batch = []
         stop_seq = 0
-        
+
+        # Track last seen minute-of-day per column to detect midnight rollovers.
+        # Times past midnight in the source CSV appear as 0:xx/1:xx rather than 24:xx/25:xx,
+        # so we detect a rollover when a stop time is earlier than the previous stop time
+        # and add 24h offset to keep stop times monotonically increasing.
+        col_minute_offset = {col_idx: 0 for col_idx in col_idx_to_train_nos}
+        col_last_minutes = {col_idx: -1 for col_idx in col_idx_to_train_nos}
+
         # We assume Station Name is Column 0
         station_col_idx = 0
-        
+
         # Iterate over raw_df starting from header_row_idx + 1
         for idx in range(header_row_idx + 1, len(raw_df)):
             row = raw_df.iloc[idx]
             station_name = str(row[station_col_idx]).strip()
-            
+
             if not station_name or station_name.lower() in ['nan', 'stesen/station', 'station']:
                 continue
-            
+
             # Skip if it's the metadata rows (checking again just in case)
             if idx <= header_row_idx:
                 continue
 
             stop_seq += 1
-            
+
             station_id = None
             if not dry_run:
                 cursor.execute("""
@@ -367,23 +391,30 @@ def ingest_csv(csv_path, dry_run=False):
             # Iterate over valid train columns
             for col_idx, trip_ids in col_to_trip_ids.items():
                 time_val = str(row[col_idx]).strip()
-                
+
                 # Check valid time format (HH:MM)
                 # Ignore '-', empty, NaN
                 if time_val and time_val.lower() not in ['nan', '-', '--', '---']:
                     try:
                         # Sometimes cells have garbage like "08:40." or spaces
                         clean_time = time_val.replace('.', ':').strip()
-                        
+
                         if ':' in clean_time:
                             parts = clean_time.split(':')
                             h = int(parts[0])
                             m = int(parts[1])
-                            # Basic validation
+                            # Basic validation (allow up to 30 for pre-normalised 24h+ times)
                             if 0 <= h <= 30 and 0 <= m <= 59:
-                                if h >= 24: h -= 24
-                                time_formatted = f"{h:02d}:{m:02d}:00"
-                                
+                                total_minutes = h * 60 + m
+                                # Detect midnight rollover: clock reset to 0:xx after a late-night time
+                                if col_last_minutes[col_idx] >= 0 and total_minutes + col_minute_offset[col_idx] < col_last_minutes[col_idx]:
+                                    col_minute_offset[col_idx] += 24 * 60
+                                adjusted_minutes = total_minutes + col_minute_offset[col_idx]
+                                col_last_minutes[col_idx] = adjusted_minutes
+                                adj_h = (adjusted_minutes // 60) % 24
+                                adj_m = adjusted_minutes % 60
+                                time_formatted = f"{adj_h:02d}:{adj_m:02d}:00"
+
                                 # Insert stop time for EVERY trip sharing this column
                                 for trip_id in trip_ids:
                                     if not dry_run:

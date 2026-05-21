@@ -29,6 +29,12 @@ def get_db_connection():
 
 # Manual aliases: map DB name variants -> canonical GTFS normalized name
 # These handle known spelling differences between the CSV-ingested DB and GTFS stops.txt
+# Stations missing from GTFS stops.txt (e.g. newly opened stations)
+MANUAL_COORDINATES = {
+    'SEGAMBUT UTARA': (3.19200, 101.65507),
+}
+
+
 NAME_ALIASES = {
     'BANDAR TASEK SELATAN': 'BANDAR TASEK',
     'BANDAR TASIK SELATAN': 'BANDAR TASEK',
@@ -151,7 +157,7 @@ def update_station_coordinates(conn, gtfs_stops, dry_run=False):
 
     for station_id, station_name in db_stations:
         norm_db = normalize_name(station_name)
-        
+
         if norm_db in gtfs_by_normalized:
             gtfs = gtfs_by_normalized[norm_db]
             if not dry_run:
@@ -161,6 +167,15 @@ def update_station_coordinates(conn, gtfs_stops, dry_run=False):
                 )
             matched += 1
             print(f"  ✓ Matched: '{station_name}' -> ({gtfs['lat']}, {gtfs['lon']})")
+        elif station_name.upper() in MANUAL_COORDINATES:
+            lat, lon = MANUAL_COORDINATES[station_name.upper()]
+            if not dry_run:
+                cursor.execute(
+                    "UPDATE stations SET latitude = %s, longitude = %s WHERE id = %s",
+                    (lat, lon, station_id)
+                )
+            matched += 1
+            print(f"  ✓ Manual:  '{station_name}' -> ({lat}, {lon})")
         else:
             unmatched.append(station_name)
     
