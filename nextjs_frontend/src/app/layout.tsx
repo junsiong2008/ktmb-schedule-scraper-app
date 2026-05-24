@@ -4,6 +4,7 @@ import "./globals.css";
 import IOSInstallPrompt from "@/components/IOSInstallPrompt";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { GoogleAnalytics } from "@next/third-parties/google";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,6 +57,7 @@ export default function RootLayout({
           <IOSInstallPrompt />
         </ThemeProvider>
       </body>
+      <GoogleAnalytics gaId="G-6TY1BP6BMG" />
     </html>
   );
 }
