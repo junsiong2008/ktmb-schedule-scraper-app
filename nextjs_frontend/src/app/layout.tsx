@@ -5,6 +5,7 @@ import IOSInstallPrompt from "@/components/IOSInstallPrompt";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import MigrationBanner from "@/components/MigrationBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -50,6 +51,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <MigrationBanner />
           {children}
           <div className="fixed bottom-4 right-4 z-50">
             <ThemeToggle />
