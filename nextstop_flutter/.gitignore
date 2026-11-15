@@ -46,3 +46,6 @@ app.*.map.json
 
 # Keystore
 /keystore
+
+# Build-time secrets (see env.example.json)
+env.json

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/models.dart';
@@ -7,6 +9,31 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/train_utils.dart';
 import '../widgets/trip_timeline.dart';
+
+// Supplied at build time: flutter run --dart-define-from-file=env.json
+const String _cartoApiKey = String.fromEnvironment('CARTO_API_KEY');
+
+String _cartoTileUrl(String style) {
+  final base = 'https://{s}.basemaps.cartocdn.com/$style/{z}/{x}/{y}{r}.png';
+  return _cartoApiKey.isEmpty ? base : '$base?key={apiKey}';
+}
+
+/// CARTO keys restricted to Android apps require the app's package name and
+/// signing-certificate SHA-1 on every tile request.
+Future<Map<String, String>> _loadCartoHeaders() async {
+  if (_cartoApiKey.isEmpty || !Platform.isAndroid) return const {};
+  try {
+    final identity = await const MethodChannel(
+      'nextstop/app_identity',
+    ).invokeMapMethod<String, String?>('getIdentity');
+    final pkg = identity?['package'];
+    final sha1 = identity?['sha1'];
+    if (pkg == null || sha1 == null) return const {};
+    return {'X-Android-Package': pkg, 'X-Android-Cert': sha1};
+  } on PlatformException {
+    return const {};
+  }
+}
 
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
@@ -30,6 +57,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   String? _focusTripId;
   bool _hasFocused = false;
   Timer? _refreshTimer;
+  TileProvider? _tileProvider; // null until CARTO headers are resolved
 
   // Carousel state
   bool _showCarousel = false;
@@ -39,6 +67,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   @override
   void initState() {
     super.initState();
+    _loadCartoHeaders().then((headers) {
+      if (mounted) {
+        setState(() => _tileProvider = NetworkTileProvider(headers: headers));
+      }
+    });
     _carouselController = PageController(viewportFraction: 0.85);
     _fetchVehicles();
     _refreshTimer = Timer.periodic(
@@ -254,12 +287,18 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                               },
                             ),
                             children: [
-                              TileLayer(
-                                urlTemplate: isDark
-                                    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                                    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                                subdomains: const ['a', 'b', 'c', 'd'],
-                              ),
+                              if (_tileProvider != null)
+                                TileLayer(
+                                  tileProvider: _tileProvider,
+                                  retinaMode: RetinaMode.isHighDensity(context),
+                                  urlTemplate: _cartoTileUrl(
+                                    isDark ? 'dark_all' : 'light_all',
+                                  ),
+                                  subdomains: const ['a', 'b', 'c', 'd'],
+                                  additionalOptions: const {
+                                    'apiKey': _cartoApiKey,
+                                  },
+                                ),
                               // Add PolylineLayer for routes
                               if (_routesLoaded)
                                 PolylineLayer(
