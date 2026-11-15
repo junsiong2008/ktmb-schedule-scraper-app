@@ -3,6 +3,7 @@ steps:
     args: [
       'build',
       '--build-arg', 'NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL}',
+      '--build-arg', 'NEXT_PUBLIC_CARTO_KEY=${_NEXT_PUBLIC_CARTO_KEY}',
       '-t', '${_IMAGE_NAME}',
       '.'
     ]

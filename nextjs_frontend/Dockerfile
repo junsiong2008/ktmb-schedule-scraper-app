@@ -26,6 +26,10 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
+# CARTO basemaps API key (inlined into the client bundle at build time)
+ARG NEXT_PUBLIC_CARTO_KEY
+ENV NEXT_PUBLIC_CARTO_KEY=$NEXT_PUBLIC_CARTO_KEY
+
 RUN npm run build
 
 # Production image, copy all the files and run next
