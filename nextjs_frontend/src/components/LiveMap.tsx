@@ -116,6 +116,7 @@ export default function LiveMap({
     const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
     const [routeShapes, setRouteShapes] = useState<RouteShape[]>([]);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [hasLoaded, setHasLoaded] = useState(false);
     const [legendOpen, setLegendOpen] = useState(false);
 
     // Map pan target — driven by selectedTripId prop changes or carousel swipe
@@ -147,6 +148,8 @@ export default function LiveMap({
             const data = await res.json();
             const list: VehiclePosition[] = data.vehicles || [];
             setVehicles(list);
+            setHasLoaded(true);
+            setHasLoaded(true);
             onVehiclesUpdate?.(list);
             const ts = typeof data.timestamp === 'number' ? data.timestamp : parseInt(data.timestamp || '0');
             setLastUpdated(new Date(ts * 1000));
@@ -310,7 +313,7 @@ export default function LiveMap({
                             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${showTrainList ? 'bg-white' : 'bg-blue-400'}`} />
                             <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${showTrainList ? 'bg-white' : 'bg-blue-500'}`} />
                         </span>
-                        {vehicles.length} Active Trains
+                        {hasLoaded ? `${vehicles.length} Active Trains` : 'Loading trains…'}
                         <ChevronDown size={13} className={`transition-transform duration-200 ${showTrainList ? 'rotate-180' : ''}`} />
                     </button>
                     <div className="text-xs text-gray-500 dark:text-gray-400 font-medium bg-gray-50 dark:bg-white/10 px-3 py-1.5 rounded-full border border-gray-100 dark:border-white/5 transition-colors">
@@ -424,7 +427,7 @@ export default function LiveMap({
                                 style={{ paddingLeft: '7.5%', paddingRight: '7.5%', gap: '10px' }}
                                 onScroll={handleCarouselScroll}
                             >
-                                {vehicles.length === 0 && <p className="text-xs text-white/50 py-2 px-4">No active trains</p>}
+                                {vehicles.length === 0 && <p className="text-xs text-white/50 py-2 px-4">{hasLoaded ? 'No active trains' : 'Loading trains…'}</p>}
                                 {vehicles.map((v, index) => {
                                     const trainNumber = getTrainNumber(v.vehicle.trip.tripId);
                                     const label = v.vehicle.vehicle.label || v.vehicle.vehicle.id;
