@@ -116,7 +116,11 @@ def extract_metadata(df, filename=""):
             route_match = re.search(r"KOMUTER (.*?) (?:HARI|SABTU|AHAD|MULAI)", meta_row)
             if route_match:
                 route_name = route_match.group(1).strip()
-    
+
+    # Newer titles read "KOMUTER LALUAN X KE Y", which the KOMUTER pattern above captures
+    # with the "LALUAN" prefix. Strip it so the name matches existing routes ("X KE Y").
+    route_name = re.sub(r"^LALUAN\s+", "", route_name)
+
     # Fallback to Filename or Header inference for ETS
     if route_name == "Unknown Route" and service_type == "ETS":
         # Check specific headers in file to guess direction/route
