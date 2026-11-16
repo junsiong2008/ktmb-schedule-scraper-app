@@ -65,8 +65,29 @@ def normalize_name(name):
     return name
 
 
+COORD_OVERRIDES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'station_coord_overrides.csv')
+
+
+def load_coord_overrides(path=COORD_OVERRIDES_FILE):
+    """Corrected coordinates keyed by upper-cased GTFS stop_name.
+
+    KTMB's GTFS has badly wrong coordinates for many East Coast stops (some tens of km off,
+    Mengkuang 239 km off). The overrides come from OpenStreetMap station nodes that sit on
+    the track (see fetch_osm_route.py).
+    """
+    overrides = {}
+    if not os.path.exists(path):
+        return overrides
+    with open(path, 'r') as f:
+        for row in csv.DictReader(f):
+            overrides[row['gtfs_stop_name'].strip().upper()] = (float(row['lat']), float(row['lon']))
+    return overrides
+
+
 def load_gtfs_stops(gtfs_dir):
-    """Load stops from GTFS stops.txt."""
+    """Load stops from GTFS stops.txt, applying station_coord_overrides.csv."""
+    overrides = load_coord_overrides()
+    applied = 0
     stops = {}
     stops_file = os.path.join(gtfs_dir, 'stops.txt')
     with open(stops_file, 'r') as f:
@@ -76,6 +97,9 @@ def load_gtfs_stops(gtfs_dir):
             stop_name = row['stop_name'].strip()
             lat = float(row['stop_lat'])
             lon = float(row['stop_lon'])
+            if stop_name.upper() in overrides:
+                lat, lon = overrides[stop_name.upper()]
+                applied += 1
             normalized = normalize_name(stop_name)
             stops[stop_id] = {
                 'name': stop_name,
@@ -83,6 +107,8 @@ def load_gtfs_stops(gtfs_dir):
                 'lat': lat,
                 'lon': lon,
             }
+    if overrides:
+        print(f"  Applied {applied} coordinate overrides from {os.path.basename(COORD_OVERRIDES_FILE)}")
     return stops
 
 

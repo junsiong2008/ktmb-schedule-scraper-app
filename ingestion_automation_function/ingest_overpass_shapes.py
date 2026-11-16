@@ -15,6 +15,17 @@ DB_GROUP_TO_OVERPASS = {
     8: ['ETS Gold (Padang Besar - Gemas)', 'ETS Gold (Gemas - Padang Besar)', 'ETS Gold (Gemas - Butterworth)'],
 }
 
+# Mapping by GTFS route_id, used when a shape_group has no entry above. More stable than
+# shape_group numbers, which depend on the order ingest_gtfs_stations.py processes routes.
+# These LineStrings are added to ktm.json by fetch_osm_route.py.
+GTFS_ROUTE_TO_OVERPASS = {
+    'SH': ['KTM Laluan kereta api Pantai Timur (Gemas ↔ Tumpat)'],
+    'ERT': ['Ekspres Rakyat Timuran (Tumpat → JB Sentral)', 'Ekspres Rakyat Timuran (JB Sentral → Tumpat)'],
+}
+
+# Stations further than this from the track are reported; their coordinates are probably wrong.
+OFF_TRACK_WARN_M = 2000
+
 def haversine_dist(lat1, lon1, lat2, lon2):
     R = 6371e3
     phi1 = lat1 * math.pi / 180
@@ -42,7 +53,11 @@ def find_best_overpass_feature(features, names):
 
 def get_db_connection():
     from dotenv import load_dotenv
-    # try looking for .env in current dir and parent
+    # Prefer DATABASE_URL from this folder's .env (same as the other ingestion scripts),
+    # falling back to the API's DB_* variables.
+    load_dotenv('.env')
+    if os.environ.get('DATABASE_URL'):
+        return psycopg2.connect(os.environ['DATABASE_URL'])
     load_dotenv('../ktmb_api/.env')
     return psycopg2.connect(
         dbname=os.environ.get("DB_NAME", "ktmbdb"),
@@ -70,11 +85,10 @@ def ingest_overpass_shapes(json_path: str, dry_run: bool = False):
         shape_group, route_label, route_color, gtfs_route_id = group_row
         print(f"\nProcessing Group {shape_group}: {route_label}")
 
-        if shape_group not in DB_GROUP_TO_OVERPASS:
+        overpass_names = DB_GROUP_TO_OVERPASS.get(shape_group) or GTFS_ROUTE_TO_OVERPASS.get(gtfs_route_id)
+        if not overpass_names:
             print("  Skipping: No Overpass mapping defined (fallback to straight lines).")
             continue
-
-        overpass_names = DB_GROUP_TO_OVERPASS[shape_group]
         best_feature = find_best_overpass_feature(features, overpass_names)
         
         if not best_feature:
@@ -119,10 +133,11 @@ def ingest_overpass_shapes(json_path: str, dry_run: bool = False):
         if not dry_run:
             cursor.execute("DELETE FROM route_shapes WHERE shape_group = %s", (shape_group,))
         
-        # Insert shape points with integer sequences (e.g., 10, 20, 30...)
-        # We will find the nearest shape point for each station to determine its insertion seq.
+        # Snap each station to its nearest track point. The station is stored AT that track
+        # point (not at its own coordinates) so a bad source coordinate can never pull the
+        # polyline off the track, and stations are ordered by position along the track.
         station_inserts = []
-        for st in stations:
+        for order, st in enumerate(stations):
             st_lat, st_lon = st[2], st[3]
             min_d = float('inf')
             best_idx = 0
@@ -131,27 +146,39 @@ def ingest_overpass_shapes(json_path: str, dry_run: bool = False):
                 if d < min_d:
                     min_d = d
                     best_idx = i
-            # Station will be placed slightly after the closest Overpass point
-            # seq = best_idx * 10 + 5 
+            if min_d > OFF_TRACK_WARN_M:
+                print(f"  Warning: {st[1]} is {min_d / 1000:.1f} km from the track; check its coordinates.")
+            snapped = overpass_coords[best_idx]
             station_inserts.append({
                 'station_id': st[0],
                 'station_name': st[1],
-                'latitude': st[2],
-                'longitude': st[3],
+                'latitude': snapped[1],
+                'longitude': snapped[0],
                 'shape_dist_traveled': st[4],
                 'gtfs_stop_id': st[5],
                 'route_id': st[6],
-                'seq_score': best_idx * 10 + 5
+                'track_idx': best_idx,
+                'order': order,
             })
 
-        # To avoid identical sequences (if 2 stations snap to same point), we ensure monotonic increase
-        for i in range(1, len(station_inserts)):
-            if station_inserts[i]['seq_score'] <= station_inserts[i-1]['seq_score']:
-                station_inserts[i]['seq_score'] = station_inserts[i-1]['seq_score'] + 1
+        # Order stations along the track (ties keep the GTFS order), then give each a
+        # sequence just after its track point.
+        station_inserts.sort(key=lambda s: (s['track_idx'], s['order']))
+        for i, s in enumerate(station_inserts):
+            s['seq_score'] = s['track_idx'] * 10 + 5
+            if i > 0 and s['seq_score'] <= station_inserts[i - 1]['seq_score']:
+                s['seq_score'] = station_inserts[i - 1]['seq_score'] + 1
+
+        # Trim the track to the stretch the stations cover (e.g. a shuttle that runs on
+        # only part of a line), so the map doesn't draw track the service never uses.
+        first_idx = station_inserts[0]['track_idx']
+        last_idx = station_inserts[-1]['track_idx']
 
         inserts = []
         # Add pure shape coords (station_name = NULL)
         for i, op_pt in enumerate(overpass_coords):
+            if i < first_idx or i > last_idx:
+                continue
             inserts.append({
                 'route_id': None, # We don't have route_id mostly
                 'station_id': None,

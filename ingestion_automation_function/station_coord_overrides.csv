@@ -1,0 +1,35 @@
+gtfs_stop_name,lat,lon,gtfs_error_km,source
+To' Uban,5.965799,102.143983,3.5,OSM station: To' Uban
+Sungai Keladi,5.917785,102.156199,1.4,OSM station: Sungai Keladi
+Pahi,5.471462,102.222674,8.8,OSM station: Pahi
+Kg.Baru Sg.Mengkuang,5.330254,102.2034,9.2,OSM station: Kampung Baru Sungai Mengkuang
+Kuala Gris,5.390326,102.064276,11.6,OSM station: Kuala Gris
+Kemubu,5.300085,102.020118,32.8,OSM station: Kemubu
+Sri Jaya,5.268241,102.009521,4.4,OSM station: Sri Jaya
+Sri Mahligai,5.248338,102.009638,27.2,OSM station: Sri Mahligai
+Sri Bintang,5.230679,102.010273,11.5,OSM station: Sri Bintang
+Sungai Tasin,5.213376,102.012479,2.0,OSM station: Sungai Tasin
+Bertam,5.151628,102.043852,0.9,OSM station: Bertam
+Sungai Koyan,4.987061,102.015573,2.7,OSM station: Sungai Koyan
+Pan Malayan,4.961971,102.010196,6.6,OSM station: Pan Malayan
+Mentara Baru,4.730637,102.010656,6.5,OSM station: Mentara Baru
+KUBANG RUSA,4.601005,101.984538,10.5,OSM station: Kubang Rusa
+Sungai Temau,4.489867,101.944713,0.9,OSM station: Sungai Temau
+Chegar Perah,4.422032,101.931676,7.7,OSM station: Chegar Perah
+Aur Gading,4.358383,101.921569,9.9,OSM station: Aur Gading
+Dura,4.334415,101.917638,14.1,OSM station: Dura
+Kg.Berkam,4.293461,101.922096,17.7,OSM station: Kampung Berkam
+B.Betong,4.257805,101.925271,15.8,OSM station: Bukit Betong
+KG TELANG,4.24866,101.951808,13.2,OSM station: Telang
+SUNGAI LIK,4.086322,102.215682,0.8,OSM station: Sungai Lik
+Mela,4.075304,102.271575,5.9,OSM station: Mela
+TEMBELING,4.055411,102.309966,31.4,OSM station: Kuala Tembeling
+Mengkuang,3.188893,102.397515,239.1,OSM station: Mengkuang
+ROMPIN,2.70542,102.505141,16.1,OSM station: Rompin
+LAPAN TUPAI,4.78819,102.01251,11.3,"OSM halt ""Lepan Tupai"""
+JERANSONG,3.85966,102.36283,8.6,"OSM halt ""Jeransang"""
+SENAI,1.60611,103.64826,8.3,Track crossing of Jalan Lapangan Terbang Senai (halt described as under this road)
+MENTRI,3.28481,102.42089,4.4,Approx: track point nearest Kampung Menteri
+KALUMPANG,3.6301,101.5645,8.2,Approx: track point nearest Kalumpang village
+SERTING,2.90197,102.38561,10.4,Approx: track point nearest Bandar Seri Jempol
+PADANG PIOL,4.03051,102.32006,9.7,Approx: track point nearest Kampung Padang Piol
