@@ -18,7 +18,7 @@ The KTMB Timetable API is a backend service built with Node.js and Express that 
 - **Framework**: Express.js
 - **Database**: PostgreSQL
 - **Real-time Data**: GTFS-realtime (Protobuf)
-- **Caching**: `node-cache` (for holiday and GTFS data)
+- **Caching**: in-memory `Map` with TTL (holiday lookups)
 
 ## Getting Started
 

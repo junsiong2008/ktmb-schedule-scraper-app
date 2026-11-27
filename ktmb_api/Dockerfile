@@ -1,13 +1,16 @@
-FROM node:18-slim
+FROM node:22-slim
+
+ENV NODE_ENV=production \
+    PORT=8080
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-RUN npm install --production
+RUN npm ci --omit=dev && npm cache clean --force
 
-COPY . .
+COPY src ./src
 
-ENV PORT=8080
+USER node
 
-CMD ["npm", "start"]
+CMD ["node", "src/index.js"]

@@ -1,0 +1,14 @@
+# Keeps "gcloud builds submit" uploads small. Mirrors .dockerignore.
+node_modules
+npm-debug.log*
+.env*
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+openapi.yaml
+verify_holiday.js
+ktmb_overpass_route
+coverage
+dist

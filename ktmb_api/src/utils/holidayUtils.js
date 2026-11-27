@@ -1,10 +1,9 @@
-const NodeCache = require('node-cache');
-const axios = require('axios');
 const { format } = require('date-fns');
 const { toZonedTime } = require('date-fns-tz');
 
-// Initialize cache with 12 hour TTL
-const holidayCache = new NodeCache({ stdTTL: 43200 });
+// In-memory cache with 12 hour TTL: date -> { value, expires }
+const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const holidayCache = new Map();
 const TIMEZONE = 'Asia/Kuala_Lumpur';
 const HOLIDAY_API_URL = process.env.HOLIDAY_API_URL || 'https://my-cuti-api-769756648802.us-central1.run.app/holidays/check';
 
@@ -21,26 +20,35 @@ const checkIsHoliday = async (date) => {
     try {
         // Check cache first
         const cacheKey = `holiday_${date}`;
-        const cachedResult = holidayCache.get(cacheKey);
+        const cached = holidayCache.get(cacheKey);
 
-        if (cachedResult !== undefined) {
-            return cachedResult;
+        if (cached) {
+            if (cached.expires > Date.now()) {
+                return cached.value;
+            }
+            holidayCache.delete(cacheKey);
         }
 
         // Call API
-        const response = await axios.get(HOLIDAY_API_URL, {
-            params: {
-                date: date,
-                state: DEFAULT_STATE
-            },
-            timeout: 5000 // 5s timeout to avoid blocking too long
+        const url = new URL(HOLIDAY_API_URL);
+        url.searchParams.set('date', date);
+        url.searchParams.set('state', DEFAULT_STATE);
+
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(5000) // 5s timeout to avoid blocking too long
         });
 
-        if (response.data && response.data.success && response.data.data) {
-            const isHoliday = response.data.data.is_holiday;
+        if (!response.ok) {
+            throw new Error(`Holiday API responded with HTTP ${response.status}`);
+        }
+
+        const body = await response.json();
+
+        if (body && body.success && body.data) {
+            const isHoliday = body.data.is_holiday;
 
             // Cache the result
-            holidayCache.set(cacheKey, isHoliday);
+            holidayCache.set(cacheKey, { value: isHoliday, expires: Date.now() + CACHE_TTL_MS });
 
             return isHoliday;
         }
