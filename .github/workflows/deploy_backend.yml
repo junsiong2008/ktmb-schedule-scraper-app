@@ -14,9 +14,16 @@ env:
   SERVICE_NAME: ktmb-api
   REGION: us-central1
   IMAGE_NAME: gcr.io/ktm-schedule-app/ktmb_api
-  # VPC Connector settings
+  # Database connectivity. Two modes:
+  # 1. Cloud SQL connector (preferred, no VPC connector to pay for): set the
+  #    repository variable CLOUDSQL_INSTANCE to the instance connection name
+  #    (project:region:instance). DB_HOST then becomes the /cloudsql socket.
+  # 2. VPC connector (legacy): used while CLOUDSQL_INSTANCE is unset. Egress is
+  #    private-ranges-only so public calls (GTFS feed, holiday API) skip the
+  #    connector and only private-IP traffic (the DB) goes through it.
+  CLOUDSQL_INSTANCE: ${{ vars.CLOUDSQL_INSTANCE }}
   VPC_CONNECTOR: ktmb-ingestion-connector
-  VPC_EGRESS: all-traffic
+  VPC_EGRESS: private-ranges-only
 
 jobs:
   deploy:
@@ -62,13 +69,21 @@ jobs:
 
       - name: Deploy to Cloud Run
         run: |
+          if [ -n "${{ env.CLOUDSQL_INSTANCE }}" ]; then
+            echo "Connecting to Cloud SQL via the built-in connector (no VPC connector)"
+            DB_HOST="/cloudsql/${{ env.CLOUDSQL_INSTANCE }}"
+            NETWORK_FLAGS="--add-cloudsql-instances=${{ env.CLOUDSQL_INSTANCE }} --clear-vpc-connector"
+          else
+            echo "Connecting to the database through VPC connector ${{ env.VPC_CONNECTOR }}"
+            DB_HOST="${{ secrets.DB_HOST }}"
+            NETWORK_FLAGS="--vpc-connector=${{ env.VPC_CONNECTOR }} --vpc-egress=${{ env.VPC_EGRESS }}"
+          fi
+
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.IMAGE_NAME }} \
             --platform managed \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
-            --vpc-connector=${{ env.VPC_CONNECTOR }} \
-            --vpc-egress=${{ env.VPC_EGRESS }} \
-            --set-env-vars="DB_HOST=${{ secrets.DB_HOST }},DB_USER=${{ secrets.DB_USER }},DB_PASSWORD=${{ secrets.DB_PASSWORD }},DB_NAME=${{ secrets.DB_NAME }},DB_PORT=5432" \
+            $NETWORK_FLAGS \
+            --set-env-vars="DB_HOST=${DB_HOST},DB_USER=${{ secrets.DB_USER }},DB_PASSWORD=${{ secrets.DB_PASSWORD }},DB_NAME=${{ secrets.DB_NAME }},DB_PORT=5432" \
             --project=${{ env.PROJECT_ID }}
-
