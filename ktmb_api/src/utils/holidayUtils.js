@@ -1,15 +1,11 @@
 const NodeCache = require('node-cache');
-const axios = require('axios');
-const { format } = require('date-fns');
-const { toZonedTime } = require('date-fns-tz');
+const db = require('../config/db');
 
-// Initialize cache with 12 hour TTL
+// Holidays change at most a few times a year, so cache lookups for 12 hours.
 const holidayCache = new NodeCache({ stdTTL: 43200 });
-const TIMEZONE = 'Asia/Kuala_Lumpur';
-const HOLIDAY_API_URL = process.env.HOLIDAY_API_URL || 'https://my-cuti-api-769756648802.us-central1.run.app/holidays/check';
 
-// State to check for holidays. Defaulting to 'KUL' as a safe general default for KTM logic.
-// Ideally this could be dynamic, but KTM generally follows national/major state holidays.
+// KTM generally follows national and Kuala Lumpur holidays.
+// The public_holidays table is filled by ingestion_automation_function/ingest_holidays.py.
 const DEFAULT_STATE = 'KUL';
 
 /**
@@ -18,34 +14,20 @@ const DEFAULT_STATE = 'KUL';
  * @returns {Promise<boolean>}
  */
 const checkIsHoliday = async (date) => {
+    const cacheKey = `holiday_${date}`;
+    const cachedResult = holidayCache.get(cacheKey);
+    if (cachedResult !== undefined) {
+        return cachedResult;
+    }
+
     try {
-        // Check cache first
-        const cacheKey = `holiday_${date}`;
-        const cachedResult = holidayCache.get(cacheKey);
-
-        if (cachedResult !== undefined) {
-            return cachedResult;
-        }
-
-        // Call API
-        const response = await axios.get(HOLIDAY_API_URL, {
-            params: {
-                date: date,
-                state: DEFAULT_STATE
-            },
-            timeout: 5000 // 5s timeout to avoid blocking too long
-        });
-
-        if (response.data && response.data.success && response.data.data) {
-            const isHoliday = response.data.data.is_holiday;
-
-            // Cache the result
-            holidayCache.set(cacheKey, isHoliday);
-
-            return isHoliday;
-        }
-
-        return false;
+        const { rowCount } = await db.query(
+            'SELECT 1 FROM public_holidays WHERE holiday_date = $1 AND state = $2 LIMIT 1',
+            [date, DEFAULT_STATE]
+        );
+        const isHoliday = rowCount > 0;
+        holidayCache.set(cacheKey, isHoliday);
+        return isHoliday;
     } catch (error) {
         console.error(`Error checking holiday for date ${date}:`, error.message);
         // On error, fail safe to false (treat as normal day) so we don't break the app

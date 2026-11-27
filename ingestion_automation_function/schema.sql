@@ -70,3 +70,12 @@ CREATE TABLE IF NOT EXISTS route_shapes (
 
 CREATE INDEX IF NOT EXISTS idx_route_shapes_route_id ON route_shapes(route_id);
 
+
+-- 7. Public Holidays (dates that run on the Weekend timetable)
+-- Filled by ingest_holidays.py, which ingest_csv.py also runs after a bulk ingestion.
+CREATE TABLE IF NOT EXISTS public_holidays (
+    holiday_date DATE NOT NULL,
+    state VARCHAR(10) NOT NULL DEFAULT 'KUL',
+    name VARCHAR(255) NOT NULL,
+    PRIMARY KEY (holiday_date, state)
+);
