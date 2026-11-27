@@ -308,6 +308,35 @@ components:
               nullable: true
             vehicle:
               $ref: '#/components/schemas/VehicleDescriptor'
+            trackPosition:
+              $ref: '#/components/schemas/TrackPosition'
+
+    TrackPosition:
+      type: object
+      nullable: true
+      description: >
+        Where the train sits on its route's station list, matched server-side from GPS.
+        Prefers routes whose gtfsRouteId equals the vehicle's routeId. Null when no
+        route segment is within 15 km.
+      properties:
+        shapeGroup:
+          type: integer
+          description: Matches RouteShape.shapeGroup from /api/gtfs/route-shapes.
+        routeName:
+          type: string
+        segmentIndex:
+          type: integer
+          description: Index of the station the train has most recently left (segment stations[i] to stations[i+1]).
+        fraction:
+          type: number
+          description: Progress along that segment, 0 to 1.
+        atStation:
+          type: integer
+          nullable: true
+          description: Station index when within 300 m of a station.
+        atStationName:
+          type: string
+          nullable: true
 
     VehicleTrip:
       type: object

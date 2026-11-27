@@ -35,10 +35,7 @@ class NextStopApp extends StatelessWidget {
             '/trip_tracker': (context) {
               final args = ModalRoute.of(context)!.settings.arguments;
               if (args is Map) {
-                return TripTrackerScreen(
-                  tripId: args['tripId'] as String,
-                  gtfsRouteId: args['gtfsRouteId'] as String?,
-                );
+                return TripTrackerScreen(tripId: args['tripId'] as String);
               }
               return TripTrackerScreen(tripId: args as String);
             },

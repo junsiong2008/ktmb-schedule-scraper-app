@@ -123,6 +123,9 @@ class VehiclePosition {
   final String? vehicleId;
   final String? vehicleLabel;
 
+  /// Where the train sits on its route, computed by the API.
+  final TrackPosition? trackPosition;
+
   VehiclePosition({
     required this.id,
     required this.tripId,
@@ -138,6 +141,7 @@ class VehiclePosition {
     this.stopId,
     this.vehicleId,
     this.vehicleLabel,
+    this.trackPosition,
   });
 
   factory VehiclePosition.fromJson(Map<String, dynamic> json) {
@@ -161,6 +165,11 @@ class VehiclePosition {
       stopId: vehicle['stopId'] as String?,
       vehicleId: vehicleInfo['id'] as String?,
       vehicleLabel: vehicleInfo['label'] as String?,
+      trackPosition: vehicle['trackPosition'] is Map<String, dynamic>
+          ? TrackPosition.fromJson(
+              vehicle['trackPosition'] as Map<String, dynamic>,
+            )
+          : null,
     );
   }
 
@@ -181,6 +190,30 @@ class VehiclePosition {
     if (tripId.isEmpty) return '';
     final parts = tripId.split('_');
     return parts.length > 1 ? parts.sublist(1).join('_') : tripId;
+  }
+}
+
+/// Server-computed position of a train along a route's station list.
+class TrackPosition {
+  final int shapeGroup;
+  final int segmentIndex;
+  final double fraction;
+  final int? atStation;
+
+  TrackPosition({
+    required this.shapeGroup,
+    required this.segmentIndex,
+    required this.fraction,
+    this.atStation,
+  });
+
+  factory TrackPosition.fromJson(Map<String, dynamic> json) {
+    return TrackPosition(
+      shapeGroup: json['shapeGroup'] as int,
+      segmentIndex: json['segmentIndex'] as int,
+      fraction: (json['fraction'] as num).toDouble(),
+      atStation: json['atStation'] as int?,
+    );
   }
 }
 
