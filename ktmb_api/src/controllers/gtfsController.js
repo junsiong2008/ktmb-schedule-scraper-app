@@ -1,11 +1,12 @@
 const GtfsRealtimeBindings = require('gtfs-realtime-bindings');
 const db = require('../config/db');
+const { positionForVehicle } = require('../utils/trainPosition');
 
 // Simple in-memory cache
 let cachedData = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 30 * 1000; // 30 seconds
-3
+
 // The upstream feed (api.data.gov.my) intermittently returns a valid-but-empty
 // feed (0 entities) or a truncated protobuf between good responses. Keep the
 // last non-empty snapshot and prefer it over an empty one for a grace period,
@@ -87,7 +88,14 @@ const getVehiclePositions = async (req, res) => {
 
 const refreshVehiclePositions = async () => {
     const now = Date.now();
-    const feed = await fetchFeedWithRetry();
+    const [feed, routes] = await Promise.all([
+        fetchFeedWithRetry(),
+        // Positions are a bonus: if shapes can't load, still serve vehicles.
+        loadRouteShapes().catch((err) => {
+            console.warn(`Route shapes unavailable for position matching: ${err.message}`);
+            return [];
+        }),
+    ]);
     // Helper to get timestamp as number (handle Long object from protobuf)
     const getTimestamp = (ts) => {
         if (!ts) return Date.now() / 1000;
@@ -139,6 +147,13 @@ const refreshVehiclePositions = async () => {
                         label: entity.vehicle.vehicle?.label,
                         licensePlate: entity.vehicle.vehicle?.licensePlate,
                     },
+                    // Where the train sits on its route (computed server-side; see utils/trainPosition.js)
+                    trackPosition: positionForVehicle(
+                        entity.vehicle.position?.latitude,
+                        entity.vehicle.position?.longitude,
+                        entity.vehicle.trip?.routeId || entity.vehicle.trip?.route_id,
+                        routes,
+                    ),
                 },
             };
         }
@@ -167,60 +182,59 @@ const refreshVehiclePositions = async () => {
     return cachedData;
 };
 
-const getRouteShapes = async (req, res) => {
-    try {
-        const now = Date.now();
+// Load route shapes grouped by shape_group, cached for 24h.
+const loadRouteShapes = async () => {
+    const now = Date.now();
+    if (cachedShapes && (now - shapesCacheTime < SHAPES_CACHE_DURATION)) {
+        return cachedShapes;
+    }
 
-        // Serve from cache if valid
-        if (cachedShapes && (now - shapesCacheTime < SHAPES_CACHE_DURATION)) {
-            return res.json(cachedShapes);
+    const result = await db.query(`
+        SELECT shape_group, route_label, route_color, gtfs_route_id, station_name, latitude, longitude, stop_sequence, shape_dist_traveled, gtfs_stop_id
+        FROM route_shapes
+        WHERE shape_group IS NOT NULL
+        ORDER BY shape_group ASC, stop_sequence ASC
+    `);
+
+    // Group by shape_group
+    const groupedRoutes = {};
+    for (const row of result.rows) {
+        const group = row.shape_group;
+        if (!groupedRoutes[group]) {
+            groupedRoutes[group] = {
+                shapeGroup: group,
+                name: row.route_label || `Route ${group}`,
+                color: row.route_color || '#888888',
+                gtfsRouteId: row.gtfs_route_id,
+                coordinates: [],
+                stations: [],
+            };
         }
+        groupedRoutes[group].coordinates.push([row.latitude, row.longitude]);
 
-        const result = await db.query(`
-            SELECT shape_group, route_label, route_color, gtfs_route_id, station_name, latitude, longitude, stop_sequence, shape_dist_traveled, gtfs_stop_id
-            FROM route_shapes
-            WHERE shape_group IS NOT NULL
-            ORDER BY shape_group ASC, stop_sequence ASC
-        `);
-
-        if (result.rows.length === 0) {
-            return res.json([]);
+        // Only add to stations array if it's an actual station (has a name)
+        if (row.station_name) {
+            groupedRoutes[group].stations.push({
+                name: row.station_name,
+                lat: row.latitude,
+                lon: row.longitude,
+                distTraveled: row.shape_dist_traveled,
+                gtfsStopId: row.gtfs_stop_id,
+            });
         }
+    }
 
-        // Group by shape_group
-        const groupedRoutes = {};
-        for (const row of result.rows) {
-            const group = row.shape_group;
-            if (!groupedRoutes[group]) {
-                groupedRoutes[group] = {
-                    shapeGroup: group,
-                    name: row.route_label || `Route ${group}`,
-                    color: row.route_color || '#888888',
-                    gtfsRouteId: row.gtfs_route_id,
-                    coordinates: [],
-                    stations: [],
-                };
-            }
-            groupedRoutes[group].coordinates.push([row.latitude, row.longitude]);
-
-            // Only add to stations array if it's an actual station (has a name)
-            if (row.station_name) {
-                groupedRoutes[group].stations.push({
-                    name: row.station_name,
-                    lat: row.latitude,
-                    lon: row.longitude,
-                    distTraveled: row.shape_dist_traveled,
-                    gtfsStopId: row.gtfs_stop_id,
-                });
-            }
-        }
-
-        const routeData = Object.values(groupedRoutes);
-
+    const routeData = Object.values(groupedRoutes);
+    if (routeData.length > 0) {
         cachedShapes = routeData;
         shapesCacheTime = now;
+    }
+    return routeData;
+};
 
-        res.json(routeData);
+const getRouteShapes = async (req, res) => {
+    try {
+        res.json(await loadRouteShapes());
     } catch (error) {
         console.error('Error fetching route shapes:', error);
         res.status(500).json({ error: 'Failed to fetch route shapes' });

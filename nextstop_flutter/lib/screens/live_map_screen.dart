@@ -1086,14 +1086,7 @@ class _LiveTrainDetailsSheetState extends State<_LiveTrainDetailsSheet> {
     }
 
     final v = _lastKnownVehicle!;
-    TrainPosition? trainPos;
-    if (v.latitude != 0 && v.longitude != 0 && widget.routes.isNotEmpty) {
-      trainPos = TrainUtils.findTrainPosition(
-        v.latitude,
-        v.longitude,
-        widget.routes,
-      );
-    }
+    final trainPos = TrainUtils.positionFor(v, widget.routes);
 
     final lastUpdated = DateTime.fromMillisecondsSinceEpoch(v.timestamp * 1000);
 

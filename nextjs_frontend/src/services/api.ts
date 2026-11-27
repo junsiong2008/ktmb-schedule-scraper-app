@@ -125,7 +125,18 @@ export interface VehiclePosition {
             label: string;
             licensePlate: string;
         };
+        /** Where the train sits on its route, computed by the API. Null when it can't be matched. */
+        trackPosition: TrackPosition | null;
     };
+}
+
+export interface TrackPosition {
+    shapeGroup: number;
+    routeName: string;
+    segmentIndex: number;
+    fraction: number;
+    atStation: number | null;
+    atStationName: string | null;
 }
 
 export interface VehiclePositionsResponse {

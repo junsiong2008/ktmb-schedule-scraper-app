@@ -1,93 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { getVehiclePositions, getRouteShapes, VehiclePosition, RouteShape, RouteStation } from '@/services/api';
+import { getVehiclePositions, getRouteShapes, VehiclePosition, RouteShape } from '@/services/api';
 import { MapPin, Train, Navigation, ArrowLeft, RefreshCw } from 'lucide-react';
 
 interface TripTrackerProps {
     tripId: string;
-    gtfsRouteId?: string;
     onBack: () => void;
 }
 
-/** Haversine distance in km between two lat/lon points */
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-const STATION_SNAP_DISTANCE_KM = 0.3; // 300m — snap to station when within this distance
-
-/** Find which route and position the train is at based on GPS */
-function findTrainPosition(
-    trainLat: number,
-    trainLon: number,
-    routes: RouteShape[]
-): { route: RouteShape; segmentIndex: number; fraction: number; atStation: number | null } | null {
-    let bestRoute: RouteShape | null = null;
-    let bestSegment = 0;
-    let bestFraction = 0;
-    let bestDist = Infinity;
-
-    for (const route of routes) {
-        const stations = route.stations;
-        if (stations.length < 2) continue;
-
-        for (let i = 0; i < stations.length - 1; i++) {
-            const A = stations[i];
-            const B = stations[i + 1];
-
-            // Project train position onto segment A-B
-            const dA = haversine(trainLat, trainLon, A.lat, A.lon);
-            const dB = haversine(trainLat, trainLon, B.lat, B.lon);
-            const dAB = haversine(A.lat, A.lon, B.lat, B.lon);
-
-            // Fraction along segment (clamped 0-1)
-            let fraction = 0;
-            if (dAB > 0.01) {
-                fraction = Math.max(0, Math.min(1, (dA * dA - dB * dB + dAB * dAB) / (2 * dAB * dAB)));
-            }
-
-            // Distance from train to the projected point on the segment
-            const projLat = A.lat + fraction * (B.lat - A.lat);
-            const projLon = A.lon + fraction * (B.lon - A.lon);
-            const distToSegment = haversine(trainLat, trainLon, projLat, projLon);
-
-            if (distToSegment < bestDist) {
-                bestDist = distToSegment;
-                bestRoute = route;
-                bestSegment = i;
-                bestFraction = fraction;
-            }
-        }
-    }
-
-    // Only match if within 15km of a segment
-    if (bestRoute && bestDist < 15) {
-        // Check if train is within 300m of any station on the matched route — snap to it
-        let atStation: number | null = null;
-        for (let i = 0; i < bestRoute.stations.length; i++) {
-            const s = bestRoute.stations[i];
-            const d = haversine(trainLat, trainLon, s.lat, s.lon);
-            if (d < STATION_SNAP_DISTANCE_KM) {
-                atStation = i;
-                break;
-            }
-        }
-
-        return { route: bestRoute, segmentIndex: bestSegment, fraction: bestFraction, atStation };
-    }
-    return null;
-}
-
-export default function TripTracker({ tripId, gtfsRouteId, onBack }: TripTrackerProps) {
+export default function TripTracker({ tripId, onBack }: TripTrackerProps) {
     const [vehicle, setVehicle] = useState<VehiclePosition | null>(null);
     const [routes, setRoutes] = useState<RouteShape[]>([]);
     const [loading, setLoading] = useState(true);
@@ -159,18 +81,13 @@ export default function TripTracker({ tripId, gtfsRouteId, onBack }: TripTracker
         return () => clearInterval(interval);
     }, [fetchData]);
 
-    // Compute train position on route
+    // Train position is computed by the API; we just look up the matched route for display
     const trainPosition = useMemo(() => {
-        if (!vehicle || routes.length === 0) return null;
-        const pos = vehicle.vehicle.position;
-        if (!pos?.latitude || !pos?.longitude) return null;
-        const candidateRoutes = gtfsRouteId
-            ? (routes.filter(r => r.gtfsRouteId === gtfsRouteId).length > 0
-                ? routes.filter(r => r.gtfsRouteId === gtfsRouteId)
-                : routes)
-            : routes;
-        return findTrainPosition(pos.latitude, pos.longitude, candidateRoutes);
-    }, [vehicle, routes, gtfsRouteId]);
+        const pos = vehicle?.vehicle.trackPosition;
+        if (!pos) return null;
+        const route = routes.find(r => r.shapeGroup === pos.shapeGroup);
+        return route ? { ...pos, route } : null;
+    }, [vehicle, routes]);
 
     // Reset auto-scroll flag when the trip changes
     useEffect(() => {

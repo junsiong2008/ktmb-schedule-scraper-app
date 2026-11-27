@@ -8,9 +8,8 @@ import '../widgets/trip_timeline.dart';
 
 class TripTrackerScreen extends StatefulWidget {
   final String tripId;
-  final String? gtfsRouteId;
 
-  const TripTrackerScreen({super.key, required this.tripId, this.gtfsRouteId});
+  const TripTrackerScreen({super.key, required this.tripId});
 
   @override
   State<TripTrackerScreen> createState() => _TripTrackerScreenState();
@@ -114,29 +113,8 @@ class _TripTrackerScreenState extends State<TripTrackerScreen> {
     }
   }
 
-  // Ported logic from TripTracker.tsx
-  TrainPosition? _calculateTrainPosition() {
-    if (_vehicle == null || _routes.isEmpty) return null;
-
-    final vehicle = _vehicle!;
-    // Skip if invalid coordinates
-    if (vehicle.latitude == 0 && vehicle.longitude == 0) return null;
-
-    // Filter to only route shapes belonging to this trip's DB route, avoiding
-    // false snaps to nearby routes on parallel tracks (e.g. Mid Valley vs Abdullah Hukum).
-    List<RouteShape> candidateRoutes = _routes;
-    if (widget.gtfsRouteId != null && widget.gtfsRouteId!.isNotEmpty) {
-      final filtered =
-          _routes.where((r) => r.gtfsRouteId == widget.gtfsRouteId).toList();
-      if (filtered.isNotEmpty) candidateRoutes = filtered;
-    }
-
-    return TrainUtils.findTrainPosition(
-      vehicle.latitude,
-      vehicle.longitude,
-      candidateRoutes,
-    );
-  }
+  TrainPosition? _calculateTrainPosition() =>
+      TrainUtils.positionFor(_vehicle, _routes);
 
   @override
   Widget build(BuildContext context) {
