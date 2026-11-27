@@ -25,6 +25,7 @@ const testHoliday = async () => {
     console.log(`Result: ${isHoliday3} (Expected: true)`);
 
     console.log('--- Verification End ---');
+    process.exit(0);
 };
 
 testHoliday();

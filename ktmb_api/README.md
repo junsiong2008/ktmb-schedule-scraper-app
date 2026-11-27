@@ -64,7 +64,6 @@ Create a `.env` file in the `ktmb_api` directory with the following variables:
 | `DB_PASSWORD` | PostgreSQL password | `********` |
 | `DB_PORT` | PostgreSQL port | `5432` |
 | `PORT` | API server port | `3000` |
-| `HOLIDAY_API_URL` | URL for the Cuti-Cuti API | `https://.../holidays/check` |
 
 ## API Reference
 
@@ -138,4 +137,4 @@ ktmb_api/
 
 ## Holiday Sensitivity
 
-The API is designed to be "holiday-aware". It uses an internal `holidayUtils` module that queries a Public Holiday API. If the searched date (or current date) is a public holiday, the API will treat it as a **Weekend** schedule for Komuter services to ensure accurate arrival/departure times.
+The API is designed to be "holiday-aware". It uses an internal `holidayUtils` module that looks the date up in the `public_holidays` table (Kuala Lumpur holidays), which `ingestion_automation_function/ingest_holidays.py` fills. Run that script, or a bulk `ingest_csv.py`, at least once a year so next year's holidays are loaded. Add one-off holidays to `ingestion_automation_function/holiday_overrides.csv`. If the searched date (or current date) is a public holiday, the API will treat it as a **Weekend** schedule for Komuter services to ensure accurate arrival/departure times.

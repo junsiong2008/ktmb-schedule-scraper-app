@@ -6,6 +6,7 @@ import re
 import argparse
 from datetime import datetime
 from dotenv import load_dotenv
+from ingest_holidays import ingest_holidays
 
 # Load environment variables
 load_dotenv()
@@ -487,6 +488,13 @@ if __name__ == "__main__":
                 ingest_csv(full_path, args.dry_run)
             except Exception as e:
                 print(f"Failed to ingest {f}: {e}")
+
+        if not args.dry_run:
+            # Refresh the holiday calendar the API uses to pick Weekend timetables.
+            try:
+                ingest_holidays()
+            except Exception as e:
+                print(f"Failed to refresh public holidays: {e}")
                 
     elif os.path.isfile(args.input_path):
         # Single file mode
